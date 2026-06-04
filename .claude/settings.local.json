@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Copy-Item *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Sergio\\\\Desktop\\\\Mapa interactivo assets\" -File | Where-Object { $_.Extension -match '\\\\.\\(jpg|jpeg|png|gif|webp\\)$' } | Select-Object Name, @{N='KB';E={[math]::Round\\($_.Length/1KB,1\\)}} | Sort-Object KB -Descending | Format-Table -AutoSize)",
+      "Bash(python3 *)",
+      "Bash(node -e ' *)",
+      "Bash(mount)",
+      "Bash(grep -n '^function \\\\|^}\\\\s*$\\\\|^const \\\\|^let ' '/c/Users/Sergio/Desktop/Mapa interactivo assets/ginkana_standalone.html')",
+      "Bash(cmd.exe /c \"start \\\\\"\\\\\" \\\\\"C:\\\\\\\\Users\\\\\\\\Sergio\\\\\\\\Desktop\\\\\\\\Mapa interactivo assets\\\\\\\\ginkana_standalone.html\\\\\"\")",
+      "Bash(powershell.exe -Command ' *)",
+      "Bash(powershell.exe *)",
+      "Bash(curl -s http://localhost:9222/json)",
+      "Bash(curl -s \"http://localhost:9222/json/list\")",
+      "Bash(curl.exe -s \"http://localhost:9222/json\")",
+      "Bash(pip install *)",
+      "Bash(awk '/^const TESTS = \\\\[/{flag=1} flag{print NR\": \"$0} /^  \\\\},.*x:.*y:/{flag=0}' \"C:\\\\Users\\\\Sergio\\\\Desktop\\\\Mapa interactivo assets\\\\ginkana_standalone.html\")",
+      "Bash(python -c ' *)",
+      "PowerShell(Out-File *)",
+      "Bash(grep -v \"^\\\\s*[0-9]*:\\\\s*[.#/\\\\*]\")",
+      "Bash(grep -v \"^[0-9]*:.*\\\\/\\\\*\\\\|^[0-9]*:.*\\\\/\\\\/\")"
+    ]
+  }
+}

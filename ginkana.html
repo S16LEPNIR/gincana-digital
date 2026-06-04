@@ -1,0 +1,3004 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ginkana · Jardí Botànic</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- html2canvas + jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --verde: #5a8a4a;
+  --verde-claro: #8ab87a;
+  --verde-oscuro: #2d5a1e;
+  --crema: #f0e8d8;
+  --tierra: #c8853a;
+  --dorado: #c9a84c;
+  --rojo: #e05a3a;
+  --fnt: 'Playfair Display', serif;
+  --fnb: 'Nunito', sans-serif;
+}
+
+html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-size: 16px;
+}
+
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: var(--fnb);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* ══════════════════════════════
+   SISTEMA DE PANTALLAS (Scrollable globally for responsiveness)
+══════════════════════════════ */
+.screen {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: none;
+  flex-direction: column;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--crema);
+}
+.screen.active { display: flex; }
+
+/* ══════════════════════════════
+   BOTONES BASE
+══════════════════════════════ */
+.btn {
+  display: block;
+  width: 100%;
+  padding: 17px;
+  border: none;
+  border-radius: 14px;
+  font-family: var(--fnb);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .12s;
+  flex-shrink: 0;
+}
+.btn:active { transform: scale(.97); }
+.btn-verde { background: var(--verde); color: #fff; box-shadow: 0 4px 14px rgba(90,138,74,.3); }
+.btn-oscuro { background: var(--verde-oscuro); color: #fff; }
+.btn-dorado { background: var(--dorado); color: var(--verde-oscuro); box-shadow: 0 4px 14px rgba(201,168,76,.35); }
+.btn-gris { background: #555; color: #fff; }
+
+/* ══════════════════════════════
+   TUTORIAL
+══════════════════════════════ */
+#screen-tutorial { background: var(--crema); }
+
+.tcard {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top, 44px) 28px env(safe-area-inset-bottom, 32px);
+  padding-top: max(44px, env(safe-area-inset-top));
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
+  gap: 10px;
+  background: var(--crema);
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all .42s cubic-bezier(.4,0,.2,1);
+  pointer-events: none;
+}
+.tcard.current { opacity:1; transform:translateX(0); pointer-events:auto; }
+.tcard.out { opacity:0; transform:translateX(-100%); }
+
+.tcard-img {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.tcard-img img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 14px;
+}
+.tcard-emoji { font-size: 80px; text-align: center; }
+
+.tcard-tag {
+  display: inline-block;
+  background: var(--verde);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 20px;
+  align-self: flex-start;
+}
+.tcard h2 {
+  font-family: var(--fnt);
+  font-size: clamp(18px, 5vw, 24px);
+  color: var(--verde-oscuro);
+  line-height: 1.25;
+}
+.tcard p {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.tcard-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.dots { display:flex; gap:8px; }
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #ccc;
+  transition: all .3s;
+}
+.dot.on { background:var(--verde); width:24px; border-radius:4px; }
+
+/* ══════════════════════════════
+   MAPA (Responsive without cropping)
+══════════════════════════════ */
+#screen-map { background: var(--crema); overflow: hidden; }
+#map-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background-color: #e1b373; /* warm sand background color from image */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Container preserves the exact aspect ratio of the 900x1490 map */
+#map-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: calc(100vh * 900 / 1490);
+  max-height: calc(100vw * 1490 / 900);
+  aspect-ratio: 900 / 1490;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.25);
+  background-color: #e1b373;
+}
+
+#map-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+#leaf-canvas { position:absolute; inset:0; pointer-events:none; z-index:4; }
+
+#hud {
+  position: absolute;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  right: 14px;
+  left: auto;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 20;
+  pointer-events: none;
+}
+#compass-base {
+  width: 76px; height: 76px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #2a1800, #0d0600);
+  border: 2px solid rgba(200,150,50,.6);
+  box-shadow: 0 0 20px rgba(0,0,0,.65), 0 0 8px rgba(200,150,50,.08);
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  pointer-events: auto;
+}
+#compass-needle {
+  width: 38px; height: 38px;
+  transform-origin: 19px 19px;
+  transition: transform .1s ease-out;
+}
+/* Passport button oculto — acceso vía mochila */
+#btn-passport { display: none !important; }
+
+/* Calibration backdrop — transparent (mapa siempre visible) */
+#calibration-backdrop { display: none; }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+/* Calibration banner — esquina inferior derecha */
+#calibration-banner {
+  position: absolute;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  right: 10px;
+  left: auto;
+  top: auto;
+  transform: none;
+  width: 252px;
+  background: rgba(240, 232, 216, 0.99);
+  border: 2.5px solid var(--dorado);
+  border-radius: 20px;
+  padding: 14px 14px 12px;
+  z-index: 30;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(201,168,76,.15);
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+  text-align: center;
+  font-family: var(--fnb);
+  animation: calibPop .28s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes calibPop {
+  from { opacity:0; transform: scale(.88) translateY(8px); }
+  to { opacity:1; transform: scale(1) translateY(0); }
+}
+#calibration-banner p {
+  font-size: 12.5px;
+  color: var(--verde-oscuro);
+  font-weight: 700;
+  line-height: 1.5;
+}
+.calib-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.calib-btn {
+  flex: 1;
+  padding: 9px;
+  border: none;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--fnb);
+  transition: transform .1s;
+}
+.calib-btn:active { transform: scale(0.97); }
+.btn-save-calib { background: var(--verde); color: #fff; }
+.btn-cancel-calib { background: #666; color: #fff; }
+
+/* Lore Modals overlay styles */
+.lore-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  backdrop-filter: blur(4px);
+}
+.lore-modal {
+  background: var(--crema);
+  border: 3px solid var(--dorado);
+  border-radius: 20px;
+  padding: 24px;
+  width: 100%;
+  max-width: 320px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: var(--fnb);
+  animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+.lore-modal h3 {
+  font-family: var(--fnt);
+  color: var(--verde-oscuro);
+  font-size: 19px;
+  font-style: italic;
+}
+.lore-modal p {
+  font-size: 13px;
+  color: #444;
+  line-height: 1.6;
+}
+
+#gps-dot {
+  position: absolute;
+  width: 22px; height: 22px;
+  transform: translate(-50%,-50%);
+  pointer-events: none;
+  z-index: 15;
+}
+#gps-inner { position:absolute; inset:0; border-radius:50%; background:rgba(60,120,255,.9); border:2px solid #fff; box-shadow:0 0 8px rgba(60,120,255,.7); }
+#gps-ring { position:absolute; inset:-6px; border-radius:50%; border:1.5px solid rgba(60,120,255,.4); animation:gpspulse 2s ease-in-out infinite; }
+
+/* Glowing directional cone using giroscopio/compass */
+#gps-cone {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  width: 140px;
+  height: 140px;
+  transform-origin: 50% 100%;
+  background: linear-gradient(0deg, rgba(60,120,255,0.65) 0%, rgba(60,120,255,0.08) 80%, rgba(60,120,255,0) 100%);
+  clip-path: polygon(50% 100%, 20% 0, 80% 0);
+  pointer-events: none;
+  z-index: 10;
+  transform: translateX(-50%) rotate(0deg);
+}
+
+@keyframes gpspulse { 0%,100%{transform:scale(1);opacity:.7;} 50%{transform:scale(1.4);opacity:.2;} }
+
+/* Premium POI Styling with slow pulsing animation */
+.poi {
+  position: absolute;
+  width: 50px; height: 50px;
+  transform: translate(-50%,-50%);
+  cursor: pointer;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.poi-pulse {
+  position: absolute;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.poi.pending .poi-pulse {
+  background: rgba(224, 90, 58, 0.25);
+  box-shadow: 0 0 15px rgba(224, 90, 58, 0.6);
+  animation: poiPulseAnim 2.2s infinite ease-in-out;
+}
+.poi.done .poi-pulse {
+  background: rgba(90, 138, 74, 0.15);
+  box-shadow: 0 0 10px rgba(90, 138, 74, 0.4);
+}
+.poi.supervisor .poi-pulse {
+  background: rgba(201, 168, 76, 0.35);
+  box-shadow: 0 0 20px rgba(201, 168, 76, 0.85);
+  animation: poiPulseAnim 1.6s infinite ease-in-out;
+}
+
+@keyframes poiPulseAnim {
+  0% { transform: scale(0.95); opacity: 0.95; }
+  50% { transform: scale(1.35); opacity: 0.15; }
+  100% { transform: scale(0.95); opacity: 0.95; }
+}
+
+.poi-core {
+  position: relative;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--fnb);
+  font-weight: 700;
+  font-size: 13px;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  border: 2px solid #fff;
+}
+.poi.pending .poi-core {
+  background: radial-gradient(circle at 35% 35%, #f07050, #c03820);
+}
+.poi.done .poi-core {
+  background: radial-gradient(circle at 35% 35%, #7aba5a, #2d5a1e);
+}
+.poi.supervisor .poi-core {
+  background: radial-gradient(circle at 35% 35%, #f5d442, #c9a84c);
+  font-size: 16px;
+  border-color: var(--dorado);
+}
+
+.toast {
+  position: fixed;
+  bottom: 90px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--verde-oscuro);
+  border: 1px solid rgba(140,190,80,.5);
+  border-radius: 30px;
+  color: #b0ffd0;
+  font-size: 13px; font-weight: 700;
+  padding: 10px 22px;
+  white-space: nowrap;
+  opacity: 0; z-index: 100;
+  transition: all .4s;
+  pointer-events: none;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ══════════════════════════════
+   BUSCA LA PLANTA
+══════════════════════════════ */
+#screen-find-plant { background: #0d1a0d; }
+.fp-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: max(40px,env(safe-area-inset-top)) 24px max(36px,env(safe-area-inset-bottom));
+  gap: 20px;
+  align-items: center;
+}
+.fp-inner h2 {
+  font-family: var(--fnt);
+  font-size: 22px;
+  color: var(--crema);
+  font-style: italic;
+  text-align: center;
+  flex-shrink: 0;
+}
+.fp-photo {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.fp-photo img {
+  max-width: 100%;
+  max-height: 45vh;
+  border: none;
+  object-fit: contain;
+  border-radius: 16px;
+}
+.fp-hint {
+  flex-shrink: 0;
+  color: rgba(245,237,224,.85);
+  font-size: 13.5px;
+  line-height: 1.65;
+  text-align: center;
+}
+
+/* ══════════════════════════════
+   CÓDIGO — unificado a --crema
+══════════════════════════════ */
+#screen-challenge-intro { background: var(--crema); }
+.ci-close {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  left: 16px;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.07);
+  border: 1px solid rgba(0,0,0,.12);
+  color: #5a8a4a; font-size: 18px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 5;
+}
+.ci-body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: max(60px,env(safe-area-inset-top)) 30px max(40px,env(safe-area-inset-bottom));
+  gap: 24px;
+}
+.ci-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+.ch-badge {
+  width: 78px; height: 78px;
+  border-radius: 50%;
+  background: var(--verde);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 34px;
+  box-shadow: 0 8px 24px rgba(90,138,74,.4);
+}
+.ch-name {
+  font-family: var(--fnt);
+  font-size: clamp(20px,5vw,26px);
+  color: var(--verde-oscuro);
+  line-height: 1.3;
+}
+.ch-desc { font-size: 13px; color: #888; line-height: 1.65; }
+
+.ci-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+.code-lbl {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--verde);
+}
+.code-row { display:flex; gap:12px; }
+.code-box {
+  width: 58px; height: 68px;
+  border: 2.5px solid #ddd;
+  border-radius: 14px;
+  background: #fff;
+  font-family: var(--fnt);
+  font-size: 30px; font-weight: 700;
+  color: var(--verde-oscuro);
+  text-align: center;
+  outline: none;
+  transition: border-color .2s;
+  caret-color: var(--verde);
+}
+.code-box:focus { border-color:var(--verde); box-shadow:0 0 0 3px rgba(90,138,74,.15); }
+.code-box.filled { border-color:var(--verde); background:rgba(90,138,74,.06); }
+.code-err {
+  color: var(--rojo);
+  font-size: 13px; font-weight: 600;
+  opacity: 0; transition: opacity .3s;
+  text-align: center; min-height: 18px;
+}
+.code-err.show { opacity:1; }
+
+.ci-bottom { width:100%; margin-top: 10px; }
+#btn-start {
+  opacity: .35;
+  pointer-events: none;
+}
+#btn-start.ready { opacity:1; pointer-events:auto; }
+
+/* ══════════════════════════════
+   PRUEBA
+══════════════════════════════ */
+#screen-challenge { background: var(--crema); }
+.ch-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: max(40px,env(safe-area-inset-top)) 28px max(36px,env(safe-area-inset-bottom));
+  gap: 20px;
+}
+.ch-hdr { text-align:center; flex-shrink:0; }
+.ch-hdr h2 { font-family:var(--fnt); font-size:22px; color:var(--verde-oscuro); margin-bottom:6px; }
+.ch-timer { font-size:44px; font-family:var(--fnt); font-weight:700; color:var(--verde); }
+.ch-body {
+  background: #fff;
+  border-radius: 20px;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap:12px;
+  border: 2px dashed #ddd;
+  padding: 30px 20px; text-align: center; color:#aaa;
+}
+.ch-body .ico { font-size:48px; }
+.ch-body p { font-size:13px; line-height:1.5; color:#555; }
+
+/* ══════════════════════════════
+   RESULTADO
+══════════════════════════════ */
+#screen-result { background: var(--verde-oscuro); overflow: hidden; }
+#res-canvas { position:absolute; inset:0; pointer-events:none; z-index:1; }
+.res-body {
+  position: relative; z-index:2;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: max(50px,env(safe-area-inset-top)) 28px max(40px,env(safe-area-inset-bottom));
+  gap: 20px;
+}
+.res-check {
+  width:84px; height:84px;
+  border-radius:50%;
+  background:rgba(255,255,255,.12);
+  border:3px solid var(--verde-claro);
+  display:flex; align-items:center; justify-content:center;
+  font-size:36px;
+  animation:checkpop .5s cubic-bezier(.34,1.56,.64,1) both;
+  flex-shrink:0;
+}
+@keyframes checkpop{ from{transform:scale(0) rotate(-30deg);opacity:0;} to{transform:scale(1);opacity:1;} }
+.res-title { font-family:var(--fnt); font-size:28px; color:#fff; font-style:italic; text-align:center; }
+.res-sub { font-family:var(--fnt); font-size:17px; color:var(--verde-claro); text-align:center; }
+.res-stats { display:flex; gap:14px; width:100%; flex-shrink:0; }
+.stat {
+  flex:1; background:rgba(255,255,255,.07);
+  border-radius:14px; padding:14px;
+  text-align:center;
+  border:1px solid rgba(255,255,255,.1);
+}
+.stat-lbl { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.5); margin-bottom:4px; }
+.stat-val { font-family:var(--fnt); font-size:26px; font-weight:700; color:#fff; }
+.passport-notif {
+  width:100%;
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:16px; padding:14px;
+  display:flex; align-items:center; gap:12px;
+  animation:slideup .6s .8s both;
+  flex-shrink:0;
+}
+@keyframes slideup{ from{transform:translateY(30px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+.pn-icon { font-size:26px; flex-shrink:0; }
+.pn-text strong { display:block; color:var(--dorado); font-size:12px; font-weight:700; margin-bottom:2px; }
+.pn-text span { color:rgba(255,255,255,.65); font-size:11.5px; line-height:1.4; }
+
+/* ══════════════════════════════
+   TUTORIAL PASAPORTE
+══════════════════════════════ */
+#screen-pt { background:#0d1a0d; }
+.pt-body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: max(40px,env(safe-area-inset-top)) 28px max(40px,env(safe-area-inset-bottom));
+  gap: 20px;
+}
+.pt-img {
+  max-width: 100%;
+  max-height: 42vh;
+  object-fit: contain;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.pt-txt { text-align:center; flex-shrink:0; }
+.pt-txt h3 { font-family:var(--fnt); font-size:22px; color:var(--dorado); margin-bottom:8px; }
+.pt-txt p { color:rgba(245,237,224,.8); font-size:13.5px; line-height:1.7; }
+
+/* ══════════════════════════════
+   PASAPORTE (Cream background, no black borders)
+══════════════════════════════ */
+#screen-passport { background: var(--crema); }
+.pp-bar {
+  flex-shrink:0;
+  display:flex; align-items:center; justify-content:space-between;
+  padding: max(48px,env(safe-area-inset-top)) 22px 12px;
+}
+.pp-bar h2 { font-family:var(--fnt); font-size:18px; color:var(--verde-oscuro); font-style:italic; }
+.pp-close {
+  width:36px; height:36px; border-radius:50%;
+  background:rgba(0,0,0,.06); border:1px solid rgba(0,0,0,.1);
+  color:var(--verde-oscuro); font-size:17px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.pp-scroll {
+  width: 100%;
+  padding: 0 18px max(24px,env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Dynamic status message callouts */
+.seal-msg {
+  width: 100%;
+  border-radius: 14px; padding: 14px;
+  margin-bottom: 4px; text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+.seal-msg.pending-seal {
+  background: #fdf5d6;
+  border: 2.5px solid var(--dorado);
+  animation: glowbox 1.8s ease-in-out infinite;
+}
+.seal-msg.info-only {
+  background: rgba(90, 138, 74, 0.08);
+  border: 1.5px dashed var(--verde);
+}
+.seal-msg.all-done {
+  background: #eef9eb;
+  border: 2px solid var(--verde);
+}
+@keyframes glowbox{ 0%,100%{box-shadow:0 0 0 rgba(201,168,76,0);} 50%{box-shadow:0 0 20px rgba(201,168,76,.55);} }
+.seal-msg p { color: #6e501c; font-size: 13px; font-weight: 700; line-height: 1.45; }
+.seal-msg span { color: #555; font-size: 10px; display: block; margin-top: 4px; font-weight: bold; }
+
+/* 9:16 Passport container. Responsive height matching 52vh max */
+.pp-road-wrap {
+  position: relative;
+  display: block;
+  width: 80vw;
+  max-width: 320px;
+  height: calc(80vw * 2131 / 1190);
+  max-height: 52vh;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  background-color: #2b1a0f;
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+.pp-road-wrap.sealing { cursor: crosshair; }
+.pp-road-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* Stamp design with dark green double border (sized to 48px) */
+.stamp {
+  position: absolute;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 2px double #2d5a1e;
+  background: rgba(255,255,255,0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  transform: translate(-50%,-50%) scale(0) rotate(-18deg);
+  transition: transform .45s cubic-bezier(.34,1.56,.64,1);
+  pointer-events: none;
+}
+.stamp.active {
+  transform: translate(-50%,-50%) scale(1) rotate(-6deg);
+}
+.stamp-emoji { font-size: 18px; line-height: 1; }
+.stamp-text {
+  font-size: 5px;
+  font-weight: 700;
+  color: #2d5a1e;
+  letter-spacing: 0.3px;
+  margin-top: 1px;
+  text-transform: uppercase;
+  font-family: var(--fnb);
+}
+
+.pp-btn {
+  width: 100%; padding: 15px;
+  background: var(--dorado); color: var(--verde-oscuro);
+  border: none; border-radius: 14px;
+  font-family: var(--fnb); font-size: 15px; font-weight: 700;
+  cursor: pointer; margin-top: 10px;
+  box-shadow: 0 4px 16px rgba(201,168,76,.4);
+  transition: transform .12s;
+  flex-shrink: 0;
+}
+.pp-btn:active { transform: scale(.97); }
+
+/* ══════════════════════════════
+   SUPERVISOR — Visual Novel Full-screen
+══════════════════════════════ */
+#screen-supervisor {
+  background: #060f06;
+  overflow: hidden;
+}
+.sv-full-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  z-index: 0;
+}
+.sv-overlay-gradient {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 58%;
+  background: linear-gradient(to bottom,
+    transparent 0%,
+    rgba(4,10,4,.82) 50%,
+    rgba(4,10,4,.97) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+.sv-panel {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 0 20px max(28px, env(safe-area-inset-bottom));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sv-name-tag {
+  display: inline-block;
+  align-self: flex-start;
+  background: var(--dorado);
+  color: var(--verde-oscuro);
+  font-family: var(--fnb);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.4);
+}
+.sv-speech-wrap {
+  min-height: 80px;
+  cursor: pointer;
+}
+.sv-speech-text {
+  font-family: var(--fnb);
+  font-size: 14.5px;
+  color: rgba(240,232,216,.95);
+  line-height: 1.8;
+}
+.sv-cursor {
+  display: inline-block;
+  color: var(--dorado);
+  font-size: 14px;
+  margin-left: 1px;
+  vertical-align: baseline;
+  animation: svBlink .75s ease-in-out infinite;
+}
+@keyframes svBlink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+.sv-actions {
+  transition: opacity .45s ease;
+}
+.sv-actions.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Black Overlay for Stamp Sound Fade */
+#black-fade {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  z-index: 1000;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+#black-fade.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ══════════════════════════════
+   CIUDADANÍA
+══════════════════════════════ */
+#screen-citizenship {
+  background: radial-gradient(circle at center, #2e1a0b, #120902);
+}
+.cz-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* Premium Citizenship Card */
+.cz-card {
+  width: 100%;
+  background: #f0e8d8;
+  border-radius: 16px;
+  border: 4px solid var(--dorado);
+  padding: 20px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  position: relative;
+  overflow: hidden;
+  color: #2b1f10;
+}
+.cz-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(201,168,76,0.3);
+  margin: 4px;
+  border-radius: 12px;
+  pointer-events: none;
+}
+.cz-header {
+  text-align: center;
+  border-bottom: 2px dashed rgba(90,138,74,0.3);
+  padding-bottom: 10px;
+}
+.cz-header h2 {
+  font-family: var(--fnt);
+  font-size: 20px;
+  color: var(--verde-oscuro);
+}
+.cz-header p {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tierra);
+  margin-top: 2px;
+}
+.cz-body {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.cz-photo-wrap {
+  width: 105px;
+  height: 135px;
+  border: 2px solid var(--tierra);
+  background: #e6dfd0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+}
+.cz-photo-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cz-photo-label {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-size: 8.5px;
+  text-align: center;
+  padding: 4px 0;
+}
+.cz-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cz-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cz-field label {
+  font-size: 9px;
+  text-transform: uppercase;
+  color: #777;
+  font-weight: 700;
+}
+.cz-name-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--verde);
+  font-family: var(--fnt);
+  font-size: 16px;
+  color: var(--verde-oscuro);
+  font-weight: bold;
+  padding: 2px 0;
+  outline: none;
+}
+.cz-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+.cz-stamps-summary {
+  display: flex;
+  justify-content: space-around;
+  background: rgba(90, 138, 74, 0.08);
+  border-radius: 10px;
+  padding: 10px;
+  border: 1px solid rgba(90, 138, 74, 0.15);
+}
+.cz-mini-stamp {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 2px double #2d5a1e;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  opacity: 0.8;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+.cz-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+  font-size: 11px;
+  font-style: italic;
+  color: #888;
+}
+
+/* ══════════════════════════════
+   SCREEN FADE-IN
+══════════════════════════════ */
+.screen.active { animation: screenEnter .28s ease both; }
+@keyframes screenEnter { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+
+/* ══════════════════════════════
+   MAP DEPTH VIGNETTE
+══════════════════════════════ */
+#map-container::after {
+  content:'';
+  position:absolute;
+  inset:0;
+  background: radial-gradient(ellipse at 50% 15%, transparent 38%, rgba(0,0,0,.2) 100%);
+  pointer-events:none;
+  z-index:5;
+}
+
+/* ══════════════════════════════
+   POI ENTRANCE ANIMATION
+══════════════════════════════ */
+@keyframes poiDrop {
+  from { transform:translate(-50%,-50%) scale(0) rotate(-20deg); opacity:0; }
+  to   { transform:translate(-50%,-50%) scale(1) rotate(0deg);  opacity:1; }
+}
+.poi { animation: poiDrop .42s cubic-bezier(.34,1.56,.64,1) both; }
+
+/* ══════════════════════════════
+   BACKPACK BUTTON
+══════════════════════════════ */
+#backpack-btn {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 33%, #3a2400, #150e00);
+  border: 2px solid rgba(201,168,76,.65);
+  box-shadow: 0 4px 20px rgba(0,0,0,.62), 0 0 10px rgba(201,168,76,.1);
+  z-index: 25;
+  pointer-events: auto;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, border-color .2s;
+}
+#backpack-btn:active { transform: scale(.88); }
+#backpack-btn.menu-open {
+  border-color: rgba(201,168,76,.95);
+  box-shadow: 0 4px 20px rgba(0,0,0,.62), 0 0 22px rgba(201,168,76,.38);
+}
+
+/* ══════════════════════════════
+   BACKPACK MENU POPUP
+══════════════════════════════ */
+#backpack-menu {
+  position: absolute;
+  bottom: 90px; right: 14px;
+  background: rgba(8,17,8,.97);
+  border: 1.5px solid rgba(201,168,76,.3);
+  border-radius: 22px;
+  padding: 8px;
+  z-index: 26;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 218px;
+  box-shadow: 0 16px 50px rgba(0,0,0,.75), 0 0 0 1px rgba(201,168,76,.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transform-origin: bottom right;
+  pointer-events: auto;
+}
+#backpack-menu.open {
+  display: flex;
+  animation: menuPop .28s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes menuPop {
+  from { opacity:0; transform:scale(.65) translateY(16px); }
+  to   { opacity:1; transform:scale(1)   translateY(0); }
+}
+.bp-menu-header {
+  padding: 6px 12px 8px;
+  border-bottom: 1px solid rgba(201,168,76,.14);
+  margin-bottom: 2px;
+  font-family: var(--fnb);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(201,168,76,.65);
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px;
+  border-radius: 14px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  pointer-events: auto;
+  transition: background .12s, transform .1s;
+}
+.menu-item:active { background: rgba(255,255,255,.07); transform: scale(.98); }
+.mi-icon {
+  width: 38px; height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.mi-passport  { background: linear-gradient(135deg, #c9a84c, #7a5c18); }
+.mi-scanner   { background: linear-gradient(135deg, #5a8a4a, #2d5a1e); }
+.mi-calibrate { background: linear-gradient(135deg, #3a6aaa, #1a3a6e); }
+.mi-label { display:flex; flex-direction:column; gap:3px; }
+.mi-name {
+  color: rgba(240,232,216,.95);
+  font-family: var(--fnb);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+.mi-desc {
+  color: rgba(240,232,216,.38);
+  font-family: var(--fnb);
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* ══════════════════════════════
+   PASSPORT BUTTON — GLOW WHEN SEAL PENDING
+══════════════════════════════ */
+#backpack-btn.seal-pending {
+  animation: passportPulse 2s ease-in-out infinite;
+}
+@keyframes passportPulse {
+  0%,100% { border-color:rgba(201,168,76,.7);  box-shadow:0 0 14px rgba(0,0,0,.5); }
+  50%     { border-color:rgba(201,168,76,1);    box-shadow:0 0 14px rgba(0,0,0,.5), 0 0 18px rgba(201,168,76,.55); }
+}
+
+/* ══════════════════════════════
+   BUTTON DEPTH IMPROVEMENTS
+══════════════════════════════ */
+.btn-verde  { box-shadow: 0 4px 14px rgba(90,138,74,.3), 0 2px 0 rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.1); }
+.btn-dorado { box-shadow: 0 4px 14px rgba(201,168,76,.35), 0 2px 0 rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.12); }
+.btn:active { transform: scale(.97) translateY(1px); }
+
+/* ══════════════════════════════
+   IMPROVED TOAST
+══════════════════════════════ */
+.toast { box-shadow: 0 8px 28px rgba(0,0,0,.4); font-size:13.5px; letter-spacing:.01em; }
+
+/* ══════════════════════════════
+   IMPROVED COMPASS
+══════════════════════════════ */
+#compass-base { box-shadow: 0 0 20px rgba(0,0,0,.65), 0 0 8px rgba(200,150,50,.08); }
+
+/* ══════════════════════════════
+   IMPROVED MODALS
+══════════════════════════════ */
+.lore-modal-overlay { animation: fadeIn .22s ease both; }
+.lore-modal { box-shadow: 0 24px 70px rgba(0,0,0,.75), 0 0 0 1px rgba(201,168,76,.1); }
+
+/* ══════════════════════════════
+   CODE BOX FOCUS IMPROVEMENT
+══════════════════════════════ */
+.code-box:focus {
+  border-color: var(--verde);
+  box-shadow: 0 0 0 3px rgba(90,138,74,.15), 0 0 0 1px rgba(90,138,74,.5);
+  transform: scale(1.04);
+}
+
+/* ══════════════════════════════
+   RESULT CHECK BOUNCE
+══════════════════════════════ */
+@keyframes checkpop { from{transform:scale(0) rotate(-45deg);opacity:0;} to{transform:scale(1) rotate(0deg);opacity:1;} }
+
+/* ══════════════════════════════
+   360° PANORAMA VIEWER
+══════════════════════════════ */
+#screen-360 { background: #000; overflow: hidden; touch-action: none; }
+#canvas-360 { position:absolute; inset:0; width:100%; height:100%; display:block; }
+/* El cartel y el HUD no bloquean los toques de arrastre */
+#sign-360   { pointer-events: none; }
+.hud-360    { pointer-events: none; }
+#btn-finish-360 { pointer-events: auto; }
+#sign-360 {
+  position: absolute;
+  top: max(20px, env(safe-area-inset-top));
+  left: 50%; transform: translateX(-50%);
+  width: calc(100% - 48px); max-width: 320px;
+  background: rgba(8,24,8,.93);
+  border: 2px solid var(--dorado);
+  border-radius: 18px;
+  padding: 14px 16px 16px;
+  z-index: 10; text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,.65), 0 0 0 1px rgba(201,168,76,.12);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  animation: signDrop .5s .2s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes signDrop {
+  from { opacity:0; transform:translateX(-50%) translateY(-18px) scale(.92); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+}
+.sign-badge {
+  display:inline-block; background:var(--verde); color:#fff;
+  font-size:9px; font-weight:700; letter-spacing:.18em; text-transform:uppercase;
+  padding:3px 10px; border-radius:20px; margin-bottom:8px;
+}
+.sign-title { font-family:var(--fnt); font-size:17px; font-style:italic; color:var(--dorado); margin-bottom:6px; line-height:1.3; }
+.sign-body  { font-family:var(--fnb); font-size:12px; color:rgba(240,232,216,.78); line-height:1.65; }
+.hud-360 {
+  position:absolute; bottom:max(28px,env(safe-area-inset-bottom));
+  left:0; right:0; display:flex; flex-direction:column;
+  align-items:center; gap:10px; padding:0 24px; z-index:10;
+}
+.gyro-hint {
+  background:rgba(0,0,0,.52); color:rgba(255,255,255,.65);
+  font-family:var(--fnb); font-size:11px;
+  padding:5px 16px; border-radius:20px; letter-spacing:.02em;
+  animation: gyroHintFade 2.5s 2s forwards;
+}
+@keyframes gyroHintFade { to { opacity:0; pointer-events:none; } }
+#btn-finish-360 { width:100%; max-width:280px; }
+
+/* ══════════════════════════════
+   POI ESPECIAL 360° (ROSA)
+══════════════════════════════ */
+.poi.special360 .poi-pulse {
+  background: rgba(230,70,130,.28);
+  box-shadow: 0 0 20px rgba(230,70,130,.75);
+  animation: poiPulseAnim 1.5s infinite ease-in-out;
+}
+.poi.special360 .poi-core { background:radial-gradient(circle at 35% 35%,#ff9abf,#c0305a); border-color:rgba(255,170,210,.8); }
+.poi.special360.done .poi-core { background:radial-gradient(circle at 35% 35%,#7aba5a,#2d5a1e); border-color:#fff; }
+.poi.special360.done .poi-pulse { background:rgba(90,138,74,.15); box-shadow:0 0 10px rgba(90,138,74,.4); animation:none; }
+
+/* ══════════════════════════════
+   CIUDADANÍA — SISTEMA DE RANGOS
+══════════════════════════════ */
+.cz-rank-wrap { width:100%; display:flex; flex-direction:column; gap:8px; }
+.cz-rank-divider {
+  text-align:center;
+  font-family:var(--fnb); font-size:8px; font-weight:700;
+  letter-spacing:.28em; text-transform:uppercase; color:rgba(0,0,0,.3);
+}
+.cz-rank-badge {
+  border-radius:14px; padding:14px 12px 11px;
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  text-align:center; position:relative; overflow:hidden; transition:box-shadow .4s;
+}
+.cz-rank-badge::before {  /* dot grid pattern — subtle indie texture */
+  content:''; position:absolute; inset:0;
+  background-image: radial-gradient(circle, rgba(0,0,0,.09) 1px, transparent 1px);
+  background-size:8px 8px; pointer-events:none;
+}
+/* ── rank color skins ── */
+.r-seed     { background:rgba(120,80,40,.07);  border:1.5px solid #a07850; }
+.r-sprout   { background:rgba(140,180,60,.07); border:1.5px solid #8ab840; }
+.r-explorer { background:rgba(60,160,90,.08);  border:1.5px dashed #3a9a5a; }
+.r-guardian { background:rgba(40,130,100,.09); border:2px solid #2a8a6a; }
+.r-master   { background:rgba(50,140,70,.1);   border:2px solid #4aaa5a;
+              box-shadow:0 0 14px rgba(74,170,90,.22); }
+.r-legend   { background:rgba(200,160,40,.1);  border:2px solid #c9a84c;
+              animation:rankGlow 2.2s ease-in-out infinite; }
+@keyframes rankGlow {
+  0%,100% { box-shadow:0 0 6px rgba(201,168,76,.15); }
+  50%     { box-shadow:0 0 26px rgba(201,168,76,.6); }
+}
+.rank-symbol { font-size:28px; line-height:1; margin-bottom:3px; }
+.rank-tier   { font-family:var(--fnb); font-size:8px; font-weight:700; letter-spacing:.3em; text-transform:uppercase; color:rgba(0,0,0,.38); }
+.rank-title  { font-family:var(--fnt); font-size:17px; font-style:italic; line-height:1.25; }
+.rank-desc   { font-family:var(--fnb); font-size:10px; color:rgba(0,0,0,.48); line-height:1.5; max-width:210px; margin-top:3px; }
+.rank-score  { font-family:var(--fnb); font-size:8px; font-weight:700; letter-spacing:.18em; color:rgba(0,0,0,.28); margin-top:5px; }
+.cz-stats-row { display:flex; gap:8px; }
+.cz-stat-box {
+  flex:1; background:rgba(90,138,74,.06);
+  border:1px solid rgba(90,138,74,.15); border-radius:12px;
+  padding:10px 6px 8px; display:flex; flex-direction:column;
+  align-items:center; gap:2px; text-align:center;
+}
+.cz-stat-ico { font-size:16px; line-height:1; }
+.cz-stat-lbl { font-family:var(--fnb); font-size:7px; font-weight:700; color:#888; letter-spacing:.12em; text-transform:uppercase; }
+.cz-stat-val { font-family:var(--fnt); font-size:15px; font-weight:700; color:var(--verde-oscuro); }
+
+/* ══════════════════════════════
+   PASAPORTE — COMPARTIR
+══════════════════════════════ */
+.pp-share-btn {
+  width:100%; padding:12px;
+  background:transparent; color:var(--verde-oscuro);
+  border:1.5px solid var(--verde); border-radius:14px;
+  font-family:var(--fnb); font-size:13px; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  gap:8px; transition:transform .12s, background .15s;
+  flex-shrink:0; margin-top:-4px;
+}
+.pp-share-btn:active { transform:scale(.97); background:rgba(90,138,74,.07); }
+</style>
+</head>
+<body>
+
+<!-- TUTORIAL -->
+<div id="screen-tutorial" class="screen active">
+  <div class="tcard current" id="tc0">
+    <div class="tcard-tag">Bienvenido</div>
+    <h2>El Jardí Botànic de València te espera</h2>
+    <p>Explora uno de los jardines botánicos más antiguos de Europa y descubre sus secretos en una emocionante aventura.</p>
+    <div class="tcard-img"><img src="extracted_image_1.jpg" alt="Bienvenidos"></div>
+    <div class="tcard-footer">
+      <div class="dots"><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <button class="btn btn-verde" onclick="nextCard(0)">Siguiente →</button>
+    </div>
+  </div>
+  <div class="tcard" id="tc1">
+    <div class="tcard-tag">El mapa</div>
+    <h2>Navega por el jardín en tiempo real</h2>
+    <p>Tu posición aparece en el mapa gracias al GPS. Usa la brújula y el giroscopio de tu móvil para guiarte en la dirección correcta. Los puntos del mapa son las pruebas.</p>
+    <div class="tcard-img"><div class="tcard-emoji">🗺️</div></div>
+    <div class="tcard-footer">
+      <div class="dots"><div class="dot"></div><div class="dot on"></div><div class="dot"></div><div class="dot"></div></div>
+      <button class="btn btn-verde" onclick="nextCard(1)">Siguiente →</button>
+    </div>
+  </div>
+  <div class="tcard" id="tc2">
+    <div class="tcard-tag">Las pruebas</div>
+    <h2>Encuentra la planta para empezar</h2>
+    <p>Cada prueba está ligada a una planta real del jardín. Búscala, localiza su placa e introduce los primeros 4 dígitos de su código para iniciar el desafío.</p>
+    <div class="tcard-img"><img src="extracted_image_2.jpg" alt="Placa de la planta"></div>
+    <div class="tcard-footer">
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot on"></div><div class="dot"></div></div>
+      <button class="btn btn-verde" onclick="nextCard(2)">Siguiente →</button>
+    </div>
+  </div>
+  <div class="tcard" id="tc3">
+    <div class="tcard-tag">Tu pasaporte</div>
+    <h2>Consigue tu residencia en el jardín</h2>
+    <p>Sella tu pasaporte tras superar cada prueba. Al completarlas todas, dirígete al Supervisor del Jardín para obtener tu ciudadanía oficial. 🌿</p>
+    <div class="tcard-img"><img src="pasaporte_camino.jpg" alt="Pasaporte Botánico"></div>
+    <div class="tcard-footer">
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot on"></div></div>
+      <button class="btn btn-oscuro" onclick="startGame()">¡Empezar la aventura! 🌱</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAPA -->
+<div id="screen-map" class="screen">
+  <div id="map-wrap">
+
+    <!-- Calibration backdrop -->
+    <div id="calibration-backdrop"></div>
+
+    <!-- Calibration Banner — centered -->
+    <div id="calibration-banner">
+      <p>📍 Toca el mapa en el lugar exacto donde te encuentras. Luego pulsa «Guardar».</p>
+      <div class="calib-actions">
+        <button class="calib-btn btn-save-calib" onclick="saveCalibration()">Guardar posición</button>
+        <button class="calib-btn btn-cancel-calib" onclick="cancelCalibration()">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- Map container -->
+    <div id="map-container" onclick="handleMapClick(event)">
+      <img id="map-img" src="extracted_image_1.jpg" alt="Mapa del Jardín">
+      <canvas id="leaf-canvas"></canvas>
+      <div id="pois-container"></div>
+      <div id="gps-dot" style="left:50%;top:92%;">
+        <div id="gps-cone"></div>
+        <div id="gps-inner"></div>
+        <div id="gps-ring"></div>
+      </div>
+    </div>
+
+    <!-- Backpack menu popup (abre hacia arriba) -->
+    <div id="backpack-menu">
+      <div class="bp-menu-header">Herramientas del explorador</div>
+      <button class="menu-item" onclick="openFromBackpack('passport')">
+        <div class="mi-icon mi-passport">
+          <svg viewBox="0 0 20 20" width="20" height="20" fill="none">
+            <rect x="3" y="2" width="14" height="17" rx="2" stroke="white" stroke-width="1.5"/>
+            <line x1="3" y1="7" x2="17" y2="7" stroke="white" stroke-width="1.1"/>
+            <circle cx="10" cy="13.5" r="2.2" stroke="white" stroke-width="1.3"/>
+            <line x1="7" y1="4.5" x2="13" y2="4.5" stroke="white" stroke-width="1.1"/>
+          </svg>
+        </div>
+        <div class="mi-label">
+          <span class="mi-name">Mi Pasaporte</span>
+          <span class="mi-desc">Sellos y progreso</span>
+        </div>
+      </button>
+      <button class="menu-item" onclick="openFromBackpack('scanner')">
+        <div class="mi-icon mi-scanner">
+          <svg viewBox="0 0 20 20" width="20" height="20" fill="none">
+            <path d="M10 16V10" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M10 10C10 10 6.5 10 5 7" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M10 10C10 10 13.5 10 15 7" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M7.5 4L10 7L12.5 4" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M7 16h6" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="mi-label">
+          <span class="mi-name">Escáner de plantas</span>
+          <span class="mi-desc">Introducir código de placa</span>
+        </div>
+      </button>
+      <button class="menu-item" onclick="openFromBackpack('calibrate')">
+        <div class="mi-icon mi-calibrate">
+          <svg viewBox="0 0 20 20" width="20" height="20" fill="none">
+            <circle cx="10" cy="10" r="7" stroke="white" stroke-width="1.4"/>
+            <circle cx="10" cy="10" r="2.5" stroke="white" stroke-width="1.3" fill="rgba(255,255,255,.2)"/>
+            <line x1="10" y1="2" x2="10" y2="5" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="10" y1="15" x2="10" y2="18" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="2" y1="10" x2="5" y2="10" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="15" y1="10" x2="18" y2="10" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="mi-label">
+          <span class="mi-name">Calibrar posición</span>
+          <span class="mi-desc">Ajustar punto en el mapa</span>
+        </div>
+      </button>
+    </div>
+
+    <!-- HUD: brújula + mochila — esquina inferior derecha -->
+    <div id="hud">
+      <div id="compass-base">
+        <svg viewBox="0 0 68 68" style="position:absolute;inset:0;width:76px;height:76px;">
+          <text x="34" y="11" text-anchor="middle" fill="#f5c842" font-size="9" font-family="Georgia" font-weight="bold">N</text>
+          <text x="60" y="37" text-anchor="middle" fill="rgba(200,150,60,.5)" font-size="7.5" font-family="Georgia">E</text>
+          <text x="34" y="63" text-anchor="middle" fill="rgba(200,150,60,.5)" font-size="7.5" font-family="Georgia">S</text>
+          <text x="8" y="37" text-anchor="middle" fill="rgba(200,150,60,.5)" font-size="7.5" font-family="Georgia">O</text>
+          <circle cx="34" cy="34" r="19" fill="none" stroke="rgba(200,150,60,.12)" stroke-width=".8"/>
+        </svg>
+        <svg id="compass-needle" viewBox="0 0 34 34" width="38" height="38" style="transform-origin:19px 19px;">
+          <polygon points="17,2 14.5,17 17,20.5 19.5,17" fill="#d43030" opacity=".95"/>
+          <polygon points="17,20.5 14.5,17 17,32 19.5,17" fill="#c8b880" opacity=".85"/>
+          <circle cx="17" cy="17" r="2.8" fill="#0d0600" stroke="rgba(220,170,60,.7)" stroke-width="1.2"/>
+        </svg>
+      </div>
+      <!-- Mochila dentro del HUD, a la derecha de la brújula -->
+      <div id="backpack-btn" onclick="toggleBackpackMenu()">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- asa superior -->
+          <path d="M9.5 5C9.5 4.2 10.2 3.5 11 3.5h2c.8 0 1.5.7 1.5 1.5V7h-5V5z"
+                stroke="#c9a84c" stroke-width="1.5" stroke-linejoin="round" fill="rgba(201,168,76,.15)"/>
+          <!-- cuerpo principal -->
+          <rect x="3.5" y="7" width="17" height="14" rx="3"
+                stroke="#c9a84c" stroke-width="1.7" fill="rgba(201,168,76,.07)"/>
+          <!-- costura/línea divisoria superior -->
+          <line x1="3.5" y1="11.5" x2="20.5" y2="11.5"
+                stroke="#c9a84c" stroke-width="1" stroke-linecap="round" opacity=".5"/>
+          <!-- bolsillo frontal -->
+          <rect x="7" y="13.5" width="10" height="5.5" rx="1.8"
+                stroke="#c9a84c" stroke-width="1.3"/>
+          <!-- tirador cremallera bolsillo -->
+          <circle cx="12" cy="13.5" r=".9" fill="#c9a84c" opacity=".8"/>
+        </svg>
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<!-- BUSCA LA PLANTA -->
+<div id="screen-find-plant" class="screen">
+  <div class="fp-inner">
+    <h2 id="fp-title">Encuentra esta planta 🌿</h2>
+    <div class="fp-photo">
+      <img id="fp-img-el" src="extracted_image_2.jpg" alt="Foto de la Planta">
+    </div>
+    <p class="fp-hint" id="fp-hint-text">Esta planta se encuentra cerca de ti. Localízala y encuentra su placa identificativa. Necesitarás los primeros 4 dígitos para iniciar la prueba.</p>
+    <button class="btn btn-verde" onclick="goToCode()">¡Entendido, ir a la prueba! →</button>
+  </div>
+</div>
+
+<!-- CÓDIGO -->
+<div id="screen-challenge-intro" class="screen">
+  <button class="ci-close" onclick="go('screen-map')">✕</button>
+  <div class="ci-body">
+    <div class="ci-top">
+      <div class="ch-badge" id="ci-badge-el">🌸</div>
+      <div class="ch-name" id="ci-name-el">Prueba</div>
+      <p class="ch-desc" id="ci-desc-el">Introduce los 4 dígitos de la placa para comenzar.</p>
+    </div>
+    <div class="ci-mid">
+      <div class="code-lbl">Código de la placa</div>
+      <div class="code-row">
+        <input class="code-box" id="c0" maxlength="1" type="text" inputmode="numeric" autocomplete="off" oninput="ci(0)" onkeydown="ck(event,0)">
+        <input class="code-box" id="c1" maxlength="1" type="text" inputmode="numeric" autocomplete="off" oninput="ci(1)" onkeydown="ck(event,1)">
+        <input class="code-box" id="c2" maxlength="1" type="text" inputmode="numeric" autocomplete="off" oninput="ci(2)" onkeydown="ck(event,2)">
+        <input class="code-box" id="c3" maxlength="1" type="text" inputmode="numeric" autocomplete="off" oninput="ci(3)" onkeydown="ck(event,3)">
+      </div>
+      <div class="code-err" id="code-err">Código incorrecto. Revisa la placa.</div>
+    </div>
+    <div class="ci-bottom">
+      <button class="btn btn-verde" id="btn-start" onclick="startChallenge()">Comenzar prueba →</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRUEBA -->
+<div id="screen-challenge" class="screen">
+  <div class="ch-inner">
+    <div class="ch-hdr">
+      <h2 id="ch-title-el">Prueba</h2>
+      <div class="ch-timer" id="timer">00:00</div>
+    </div>
+    <div class="ch-body">
+      <div class="ico" id="ch-icon-el">🌸</div>
+      <p>Has encontrado la planta con éxito. ¡Es hora de completar el reto!<br>Busca información o resuelve la actividad y pulsa el botón al terminar.</p>
+    </div>
+    <button class="btn btn-verde" onclick="complete()">✓ Completar prueba</button>
+  </div>
+</div>
+
+<!-- RESULTADO -->
+<div id="screen-result" class="screen">
+  <canvas id="res-canvas"></canvas>
+  <div class="res-body">
+    <div class="res-check">✓</div>
+    <div class="res-title">¡Prueba superada!</div>
+    <div class="res-sub" id="res-name-el">Nombre de la Prueba</div>
+    <div class="res-stats">
+      <div class="stat"><div class="stat-lbl">Tiempo</div><div class="stat-val" id="res-time">00:00</div></div>
+      <div class="stat"><div class="stat-lbl">Progreso</div><div class="stat-val" id="res-progress-el">1/4</div></div>
+    </div>
+    <div class="passport-notif">
+      <div class="pn-icon">📖</div>
+      <div class="pn-text">
+        <strong id="res-notif-title">¡Has ganado un sello!</strong>
+        <span>Pulsa continuar para añadirlo a tu pasaporte.</span>
+      </div>
+    </div>
+    <button class="btn btn-dorado" onclick="handleResultContinue()">Continuar →</button>
+  </div>
+</div>
+
+<!-- PASAPORTE -->
+<div id="screen-passport" class="screen">
+  <div class="pp-bar">
+    <h2>Mi Pasaporte Botánico</h2>
+    <button class="pp-close" onclick="go('screen-map')">✕</button>
+  </div>
+  <div class="pp-scroll">
+    <div class="seal-msg" id="seal-msg">
+      <p id="seal-msg-text">✦ ¡PRUEBA COMPLETADA! Para continuar, debes colocar tu sello en el pasaporte. Pulsa en el círculo correspondiente del camino en la imagen de abajo para estampar el sello.</p>
+      <span id="seal-msg-sub" style="color:#6e501c; font-weight: bold; margin-top: 6px; display: block;">Este sello solo se puede colocar una vez para evitar duplicados.</span>
+    </div>
+
+    <!-- Centered and size-limited wrapper for image aspect ratio -->
+    <div class="pp-road-wrap" id="pp-road" onclick="handleSealTap(event)">
+      <img class="pp-road-img" src="pasaporte_camino.jpg" alt="Camino" id="pp-road-img">
+      <!-- Stamp elements are dynamically placed here -->
+    </div>
+
+    <button class="pp-btn" id="pp-continue-btn" onclick="go('screen-map')">Continuar la aventura 🌿</button>
+  </div>
+</div>
+
+<!-- SUPERVISOR DIALOGUE — Visual Novel -->
+<div id="screen-supervisor" class="screen">
+  <img class="sv-full-img" src="supervisor_pasaporte.png" alt="Supervisor">
+  <canvas id="firefly-canvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;"></canvas>
+  <div class="sv-overlay-gradient"></div>
+  <div class="sv-panel">
+    <div class="sv-name-tag">Botánico Mayor</div>
+    <div class="sv-speech-wrap" onclick="svSkipTypewriter()">
+      <span id="sv-speech" class="sv-speech-text"></span><span id="sv-cursor" class="sv-cursor">▌</span>
+    </div>
+    <div class="sv-actions hidden" id="sv-actions">
+      <button class="btn btn-dorado" id="sv-btn-action" onclick="go('screen-map')">Entendido</button>
+    </div>
+  </div>
+</div>
+
+<!-- Black transition overlay for wood stamp effect -->
+<div id="black-fade"></div>
+
+<!-- CIUDADANÍA -->
+<div id="screen-citizenship" class="screen">
+  <div class="cz-container">
+    <div class="cz-card" id="citizenship-card">
+      <div class="cz-header">
+        <h2>CIUDADANÍA DE HONOR</h2>
+        <p>Jardí Botànic de la Universitat de València</p>
+      </div>
+      
+      <div class="cz-body">
+        <!-- Photo upload (tap to select file) -->
+        <input type="file" id="photo-upload" accept="image/*" style="display: none;" onchange="handlePhotoUpload(event)">
+        <div class="cz-photo-wrap" onclick="triggerPhotoUpload()">
+          <img id="cz-avatar-el" src="foto_defecto_pasaporte.jpg" alt="Foto">
+          <div class="cz-photo-label">Cambiar foto</div>
+        </div>
+        
+        <div class="cz-info">
+          <div class="cz-field">
+            <label>Nombre del Ciudadano/a</label>
+            <input type="text" class="cz-name-input" id="cz-name-input" value="Aventurero/a" placeholder="Escribe tu nombre">
+          </div>
+          <div class="cz-field">
+            <label>Fecha de Emisión</label>
+            <div class="cz-value" id="cz-date-el">02/06/2026</div>
+          </div>
+          <div class="cz-field">
+            <label>Estado de Residencia</label>
+            <div class="cz-value" style="color: var(--verde-oscuro); font-weight: bold;">Ciudadano/a Oficial 🌿</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Clasificación y estadísticas -->
+      <div class="cz-rank-wrap">
+        <div class="cz-rank-divider">✦ &nbsp; clasificación &nbsp; ✦</div>
+        <div class="cz-rank-badge r-seed" id="cz-rank-badge">
+          <span class="rank-symbol" id="rank-symbol">◉</span>
+          <span class="rank-tier"   id="rank-tier">SEMILLA</span>
+          <span class="rank-title"  id="rank-title">Semilla Curiosa</span>
+          <span class="rank-desc"   id="rank-desc">Toda leyenda empieza por una semilla.</span>
+          <span class="rank-score"  id="rank-score">PUNTUACIÓN  0 / 100</span>
+        </div>
+        <div class="cz-stats-row">
+          <div class="cz-stat-box">
+            <span class="cz-stat-ico">⏱</span>
+            <span class="cz-stat-lbl">Tiempo medio</span>
+            <span class="cz-stat-val" id="stat-avg-time">--:--</span>
+          </div>
+          <div class="cz-stat-box">
+            <span class="cz-stat-ico">🔬</span>
+            <span class="cz-stat-lbl">Plantas</span>
+            <span class="cz-stat-val" id="stat-plants">0 / 4</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sellos -->
+      <div class="cz-stamps-summary" id="cz-stamps-summary">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="cz-card-footer">
+        <span>Ginko Aventures</span>
+        <span>Jardí Botànic UV</span>
+      </div>
+    </div>
+    
+    <button class="btn btn-dorado" onclick="downloadPassport()">Descargar Pasaporte 📥</button>
+    <button class="btn btn-gris" onclick="resetAdventure()">Reiniciar Aventura 🔄</button>
+  </div>
+</div>
+
+<!-- VISOR 360° -->
+<div id="screen-360" class="screen">
+  <canvas id="canvas-360"></canvas>
+  <div id="sign-360">
+    <span class="sign-badge">🌿 Exploración inmersiva</span>
+    <div class="sign-title" id="sign-360-title">El Invernadero Tropical</div>
+    <p class="sign-body" id="sign-360-body">Observa bien tu entorno...</p>
+  </div>
+  <div class="hud-360">
+    <div class="gyro-hint">↔ Arrastra o inclina el dispositivo para explorar</div>
+    <button id="btn-finish-360" class="btn btn-verde" onclick="finish360()">✓ Terminar prueba</button>
+  </div>
+</div>
+
+<!-- LORE MODALS FOR GPS CALIBRATION -->
+<div id="lore-gps-overlay" class="lore-modal-overlay">
+  <div class="lore-modal">
+    <h3>🌿 Señal GPS del jardín</h3>
+    <p>Los árboles y sus copas pueden interferir con la señal GPS.</p>
+    <p>Antes de comenzar, localiza visualmente dónde estás en el mapa y pulsa sobre tu posición para calibrar tu punto de inicio. Así podrás ver tu avance en tiempo real.</p>
+    <button class="btn btn-verde" onclick="confirmLoreGps()">Calibrar ahora</button>
+    <button class="btn btn-gris" style="margin-top:-4px" onclick="skipGpsCalib()">Entendido, después calibro</button>
+  </div>
+</div>
+
+<div id="lore-reminder-overlay" class="lore-modal-overlay">
+  <div class="lore-modal">
+    <h3>📡 Calibración Guardada</h3>
+    <p>¡Tu posición ha sido registrada con éxito!</p>
+    <p>Recuerda: si en algún momento sientes que el punto azul se ha desviado o te trasladas a otro lugar, puedes recalibrar tu ubicación pulsando el icono del radar giratorio situado encima de tu pasaporte.</p>
+    <button class="btn btn-verde" onclick="closeLoreReminder()">¡Empezar Aventura! 🗺️</button>
+  </div>
+</div>
+
+<script>
+// Estructura de pruebas de la Gincana (Códigos unificados a 1111 para desarrollo/testeo)
+const TESTS = [
+  {
+    id: 0,
+    name: "El Estanque de los Nenúfares",
+    desc: "Familia Nymphaeaceae · Prueba 1 de 4",
+    hint: "Esta planta se encuentra cerca de ti (en el estanque central). Localízala y encuentra su placa. Necesitarás los primeros 4 dígitos para iniciar la prueba.",
+    code: "1111",
+    photo: "extracted_image_2.jpg",
+    emoji: "🌸",
+    x: 52,
+    y: 38
+  },
+  {
+    id: 1,
+    name: "El Invernadero Tropical",
+    desc: "Familia Bromeliaceae · Prueba 2 de 4",
+    hint: "Esta planta se encuentra cerca de ti (dentro del invernadero). Localízala y encuentra su placa. Necesitarás los primeros 4 dígitos para iniciar la prueba.",
+    code: "1111",
+    photo: "extracted_image_5.jpg",
+    emoji: "🌿",
+    x: 35, y: 25,
+    mode: '360',
+    panorama: 'panorama_invernadero.jpg.jpeg',
+    signText: 'Observa bien tu entorno. La planta que buscas vive aquí, entre la exuberante vegetación tropical. Mira a tu alrededor... ¿la reconoces?'
+  },
+  {
+    id: 2,
+    name: "El Umbráculo de las Palmeras",
+    desc: "Familia Arecaceae · Prueba 3 de 4",
+    hint: "Esta planta se encuentra cerca de ti (bajo la estructura de madera). Localízala y encuentra su placa. Necesitarás los primeros 4 dígitos para iniciar la prueba.",
+    code: "1111",
+    photo: "extracted_image_6.jpg",
+    emoji: "🌴",
+    x: 56,
+    y: 70
+  },
+  {
+    id: 3,
+    name: "El Jardín Romano",
+    desc: "Familia Rosaceae · Prueba 4 de 4",
+    hint: "Esta planta se encuentra cerca de ti (en la plaza romana). Localízala y encuentra su placa. Necesitarás los primeros 4 dígitos para iniciar la prueba.",
+    code: "1111",
+    photo: "extracted_image_7.jpg",
+    emoji: "🌹",
+    x: 82,
+    y: 28
+  }
+];
+
+// Estado global de la gincana (con soporte para calibración y offsets de GPS)
+const S = {
+  activeTestIndex: null,
+  completedTests: [false, false, false, false],
+  stampedTests: [false, false, false, false],
+  stampCoordinates: [null, null, null, null],
+  completionTimes: [null, null, null, null],
+  firstTimePassport: true,
+  sealPending: false,
+  timerSec: 0,
+  timerInt: null,
+  heading: 0, hTarget: 15, hVel: 0,
+  
+  // Calibración de GPS
+  mapInitialized: false,
+  isCalibrating: false,
+  hasCalibrated: false,
+  gpsOffset: { x: 0, y: 0 },
+  manualPos: { x: 50, y: 92 }, // Entrada del jardín (parte inferior)
+  lastGpsPos: null,
+  tempGpsPos: { x: 50, y: 92 }
+};
+
+function go(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// TUTORIAL
+function nextCard(i) {
+  playPageTurn();
+  const cards = document.querySelectorAll('.tcard');
+  cards[i].classList.remove('current'); cards[i].classList.add('out');
+  if (i + 1 < cards.length) cards[i + 1].classList.add('current');
+}
+
+function startGame() {
+  showGpsCalibModal();
+}
+
+function showGpsCalibModal() {
+  document.getElementById('lore-gps-overlay').style.display = 'flex';
+}
+
+// kept for legacy references
+function showLoreGpsModal() { showGpsCalibModal(); }
+
+function _initMap() {
+  if (S.mapInitialized) return;
+  S.mapInitialized = true;
+  go('screen-map');
+  renderPOIs();
+  initLeaves();
+  initGPS();
+  initCompass();
+  updateGpsDisplay();
+}
+
+function confirmLoreGps() {
+  document.getElementById('lore-gps-overlay').style.display = 'none';
+  _initMap();
+  startCalibration();
+}
+
+function skipGpsCalib() {
+  document.getElementById('lore-gps-overlay').style.display = 'none';
+  _initMap();
+}
+
+function closeLoreReminder() {
+  document.getElementById('lore-reminder-overlay').style.display = 'none';
+  toast('🌿 ¡Bienvenido al Jardí Botànic!');
+}
+
+// RENDER POIs ON THE MAP
+function renderPOIs() {
+  const container = document.getElementById('pois-container');
+  container.innerHTML = '';
+  
+  // 4 Tests POIs (No numbers in pending circles, only '✓' on completed)
+  TESTS.forEach(test => {
+    const isCompleted = S.completedTests[test.id];
+    const stateClass = isCompleted ? 'done' : 'pending';
+    const poi = document.createElement('div');
+    poi.className = `poi ${stateClass}${test.mode === '360' ? ' special360' : ''}`;
+    poi.id = `poi-${test.id}`;
+    poi.style.left = test.x + '%';
+    poi.style.top = test.y + '%';
+    poi.style.animationDelay = (test.id * 0.08) + 's';
+    poi.onclick = (e) => {
+      e.stopPropagation();
+      handlePoiClick(test.id);
+    };
+    
+    poi.innerHTML = `
+      <div class="poi-pulse"></div>
+      <div class="poi-core">${isCompleted ? '✓' : ''}</div>
+    `;
+    container.appendChild(poi);
+  });
+  
+  // Supervisor POI (minimalist leaf icon instead of crown)
+  const supervisorPoi = document.createElement('div');
+  supervisorPoi.className = 'poi supervisor';
+  supervisorPoi.id = 'poi-supervisor';
+  supervisorPoi.style.left = '46%';
+  supervisorPoi.style.top = '15%';
+  supervisorPoi.onclick = (e) => {
+    e.stopPropagation();
+    handleSupervisorClick();
+  };
+  supervisorPoi.innerHTML = `
+    <div class="poi-pulse"></div>
+    <div class="poi-core">🍃</div>
+  `;
+  container.appendChild(supervisorPoi);
+}
+
+// POI CLICK HANDLER
+function handlePoiClick(index) {
+  if (S.completedTests[index]) {
+    toast('¡Esta prueba ya ha sido completada!');
+    return;
+  }
+  
+  S.activeTestIndex = index;
+  const test = TESTS[index];
+  
+  // Update Plant Screen Details
+  document.getElementById('fp-title').textContent = `Encuentra: ${test.name} 🌿`;
+  document.getElementById('fp-img-el').src = test.photo;
+  document.getElementById('fp-hint-text').textContent = test.hint;
+  
+  // Update Code Screen Details
+  document.getElementById('ci-badge-el').textContent = test.emoji;
+  document.getElementById('ci-name-el').textContent = test.name;
+  document.getElementById('ci-desc-el').innerHTML = `${test.desc}<br>Introduce los 4 dígitos de la placa para comenzar.`;
+  
+  // Go to find plant screen
+  go('screen-find-plant');
+}
+
+// TRANSITION TO CODE
+function goToCode() {
+  clearCode();
+  go('screen-challenge-intro');
+  setTimeout(() => document.getElementById('c0').focus(), 300);
+}
+
+// CÓDIGO INPUT LOGIC
+function ci(i) {
+  const el = document.getElementById('c' + i);
+  const v = el.value.replace(/\D/g,'').slice(-1);
+  el.value = v; el.classList.toggle('filled', !!v);
+  if (v && i < 3) document.getElementById('c' + (i+1)).focus();
+  document.getElementById('btn-start').classList.toggle('ready',
+    [0,1,2,3].every(j => document.getElementById('c'+j).value));
+}
+
+function ck(e, i) {
+  if (e.key === 'Backspace' && !document.getElementById('c'+i).value && i > 0)
+    document.getElementById('c'+(i-1)).focus();
+}
+
+function clearCode() {
+  [0,1,2,3].forEach(i => {
+    const el = document.getElementById('c'+i);
+    el.value = ''; el.classList.remove('filled'); el.style.borderColor = '';
+  });
+  document.getElementById('code-err').classList.remove('show');
+  document.getElementById('btn-start').classList.remove('ready');
+}
+
+function startChallenge() {
+  const v = [0,1,2,3].map(i => document.getElementById('c'+i).value).join('');
+  const activeTest = TESTS[S.activeTestIndex];
+  
+  if (v !== activeTest.code) {
+    document.getElementById('code-err').classList.add('show');
+    [0,1,2,3].forEach(i => {
+      const el = document.getElementById('c'+i);
+      el.style.borderColor = 'var(--rojo)';
+      setTimeout(() => el.style.borderColor = '', 1000);
+    });
+    return;
+  }
+  
+  // Modo 360°
+  if (activeTest.mode === '360') {
+    start360Viewer(activeTest);
+    return;
+  }
+
+  // Setup Challenge Screen Details
+  document.getElementById('ch-title-el').textContent = activeTest.name;
+  document.getElementById('ch-icon-el').textContent = activeTest.emoji;
+
+  // Start Timer
+  S.timerSec = 0;
+  if (S.timerInt) clearInterval(S.timerInt);
+  S.timerInt = setInterval(() => {
+    S.timerSec++;
+    document.getElementById('timer').textContent =
+      String(Math.floor(S.timerSec/60)).padStart(2,'0')+':'+
+      String(S.timerSec%60).padStart(2,'0');
+  }, 1000);
+
+  go('screen-challenge');
+}
+
+// TEST COMPLETE
+function complete() {
+  if (S.timerInt) clearInterval(S.timerInt);
+  
+  const activeTest = TESTS[S.activeTestIndex];
+  S.completedTests[S.activeTestIndex] = true;
+  S.completionTimes[S.activeTestIndex] = S.timerSec;
+  S.sealPending = true;
+  document.getElementById('backpack-btn').classList.add('seal-pending');
+  
+  // Render map changes
+  renderPOIs();
+  
+  // Result screen updates
+  document.getElementById('res-time').textContent =
+    String(Math.floor(S.timerSec/60)).padStart(2,'0')+':'+
+    String(S.timerSec%60).padStart(2,'0');
+  document.getElementById('res-name-el').textContent = activeTest.name;
+  
+  const completedCount = S.completedTests.filter(Boolean).length;
+  document.getElementById('res-progress-el').textContent = `${completedCount}/4`;
+  
+  // Passport notification wording
+  const notifTitle = document.getElementById('res-notif-title');
+  if (completedCount === 1) {
+    notifTitle.textContent = "¡Has obtenido el Pasaporte!";
+  } else {
+    notifTitle.textContent = "¡Prueba superada!";
+  }
+  
+  playChime();
+  go('screen-result');
+  initResultLeaves();
+}
+
+function handleResultContinue() {
+  S.firstTimePassport = false;
+  go('screen-passport');
+  setupSeal();
+}
+
+// PASAPORTE — SELLO INTERACTIVO
+function setupSeal() {
+  const msgEl = document.getElementById('seal-msg');
+  const msgTextEl = document.getElementById('seal-msg-text');
+  const msgSubEl = document.getElementById('seal-msg-sub');
+  const roadEl = document.getElementById('pp-road');
+  const continueBtn = document.getElementById('pp-continue-btn');
+  
+  renderPlacedStamps();
+  
+  const stampedCount = S.stampedTests.filter(Boolean).length;
+  
+  if (S.sealPending && S.activeTestIndex !== null) {
+    const activeTest = TESTS[S.activeTestIndex];
+    msgTextEl.textContent = `✦ ¡PRUEBA COMPLETADA! Para continuar, debes colocar tu sello en el pasaporte. Pulsa en el círculo correspondiente del camino en la imagen de abajo para estampar el sello de: ${activeTest.name}`;
+    msgSubEl.textContent = "Este sello solo se puede colocar una vez para evitar duplicados.";
+    msgEl.className = "seal-msg pending-seal";
+    msgEl.style.display = 'block';
+    roadEl.classList.add('sealing');
+    continueBtn.style.display = 'none'; // hide until stamped
+  } else {
+    msgTextEl.textContent = `📖 Tu Pasaporte Botánico: Has completado y sellado ${stampedCount} de 4 pruebas.`;
+    if (stampedCount === 4) {
+      msgSubEl.textContent = "¡Enhorabuena! Dirígete al Supervisor del Jardín para obtener tu ciudadanía oficial.";
+      msgEl.className = "seal-msg all-done";
+    } else {
+      msgSubEl.textContent = "Pulsa 'Continuar la aventura' para buscar más plantas en el mapa.";
+      msgEl.className = "seal-msg info-only";
+    }
+    msgEl.style.display = 'block';
+    roadEl.classList.remove('sealing');
+    continueBtn.style.display = 'block';
+    
+    // Check if all are stamped
+    if (stampedCount === 4) {
+      continueBtn.textContent = "¡Pruebas completadas! Busca al Supervisor del Jardín 🌿";
+      continueBtn.classList.remove('btn-dorado');
+      continueBtn.classList.add('btn-verde');
+    } else {
+      continueBtn.textContent = "Continuar la aventura 🌿";
+      continueBtn.classList.add('btn-dorado');
+      continueBtn.classList.remove('btn-verde');
+    }
+  }
+}
+
+function openPassport() {
+  go('screen-passport');
+  setupSeal();
+}
+
+let lastStampTime = 0;
+function handleSealTap(e) {
+  if (!S.sealPending) return;
+  
+  // Throttle double hits
+  const now = Date.now();
+  if (now - lastStampTime < 500) return;
+  lastStampTime = now;
+  
+  const wrap = document.getElementById('pp-road');
+  const rect = wrap.getBoundingClientRect();
+  
+  // Fetch event coordinates (handles pointer, mouse, touch correctly)
+  let clientX = e.clientX;
+  let clientY = e.clientY;
+  
+  if (e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else if (e.changedTouches && e.changedTouches.length > 0) {
+    clientX = e.changedTouches[0].clientX;
+    clientY = e.changedTouches[0].clientY;
+  }
+  
+  if (clientX === undefined || clientY === undefined) {
+    console.error("Could not obtain touch/click coordinates.");
+    return;
+  }
+  
+  const x = (clientX - rect.left);
+  const y = (clientY - rect.top);
+  
+  // Convert to percentage
+  const xPct = (x / rect.width) * 100;
+  const yPct = (y / rect.height) * 100;
+  
+  // Safe validation to prevent NaN placements
+  if (isNaN(xPct) || isNaN(yPct) || rect.width === 0 || rect.height === 0) {
+    console.error("Invalid coordinates calculated on passport");
+    return;
+  }
+  
+  // Store stamp coordinates
+  S.stampCoordinates[S.activeTestIndex] = { x: xPct, y: yPct };
+  S.stampedTests[S.activeTestIndex] = true;
+  S.sealPending = false;
+  document.getElementById('backpack-btn').classList.remove('seal-pending');
+  
+  playSeal();
+  setupSeal(); // Re-renders the newly added stamp and shows the continue button
+}
+
+// REDRAW ALL EARNED STAMPS
+function renderPlacedStamps() {
+  // Remove existing ones
+  document.querySelectorAll('.stamp').forEach(el => el.remove());
+  
+  TESTS.forEach(test => {
+    const coords = S.stampCoordinates[test.id];
+    if (coords && S.stampedTests[test.id]) {
+      const stampDiv = document.createElement('div');
+      stampDiv.className = 'stamp';
+      stampDiv.style.left = coords.x + '%';
+      stampDiv.style.top = coords.y + '%';
+      const t = S.completionTimes[test.id];
+      const tStr = t != null
+        ? String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0')
+        : 'Jardí Botànic';
+      stampDiv.innerHTML = `
+        <span class="stamp-emoji">${test.emoji}</span>
+        <span class="stamp-text">${tStr}</span>
+      `;
+      document.getElementById('pp-road').appendChild(stampDiv);
+      // Force reflow and add active class to trigger CSS transition
+      stampDiv.offsetHeight;
+      stampDiv.classList.add('active');
+    }
+  });
+}
+
+// ── LUCIÉRNAGAS ────────────────────────────────────
+let _ffRAF = null;
+
+function initFireflies() {
+  const canvas = document.getElementById('firefly-canvas');
+  if (!canvas) return;
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const flies = Array.from({ length: 28 }, () => mkFly(W, H, true));
+
+  function mkFly(W, H, randomY) {
+    const size  = 1.4 + Math.random() * 2.2;
+    return {
+      x:     Math.random() * W,
+      y:     randomY ? Math.random() * H : H + 10,
+      vx:    (Math.random() - 0.5) * 0.55,
+      vy:    -0.2 - Math.random() * 0.45,
+      size,
+      alpha: 0,
+      maxAlpha: 0.55 + Math.random() * 0.45,
+      phase: Math.random() * Math.PI * 2,
+      blinkSpeed: 0.018 + Math.random() * 0.025,
+      wobble: (Math.random() - 0.5) * 0.012,
+      // warm yellow-green glow
+      r: 180 + Math.floor(Math.random() * 60),
+      g: 220 + Math.floor(Math.random() * 35),
+      b: 80  + Math.floor(Math.random() * 60),
+    };
+  }
+
+  function tick() {
+    if (!document.getElementById('screen-supervisor').classList.contains('active')) {
+      _ffRAF = null; return;
+    }
+    ctx.clearRect(0, 0, W, H);
+
+    flies.forEach((f, i) => {
+      f.phase += f.blinkSpeed;
+      f.vx    += f.wobble;
+      f.vx    *= 0.995;
+      f.x     += f.vx;
+      f.y     += f.vy;
+
+      // wrap horizontally
+      if (f.x < -10) f.x = W + 10;
+      if (f.x > W + 10) f.x = -10;
+      // recycle when off top
+      if (f.y < -20) Object.assign(f, mkFly(W, H, false));
+
+      const blink = (Math.sin(f.phase) + 1) / 2;
+      const a = blink * f.maxAlpha;
+
+      // glow
+      const grd = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.size * 4.5);
+      grd.addColorStop(0,   `rgba(${f.r},${f.g},${f.b},${a})`);
+      grd.addColorStop(0.4, `rgba(${f.r},${f.g},${f.b},${a * 0.35})`);
+      grd.addColorStop(1,   `rgba(${f.r},${f.g},${f.b},0)`);
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.size * 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+
+      // core dot
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.size * 0.7, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${f.r},${f.g},${f.b},${Math.min(1, a * 1.8)})`;
+      ctx.fill();
+    });
+
+    _ffRAF = requestAnimationFrame(tick);
+  }
+
+  if (_ffRAF) cancelAnimationFrame(_ffRAF);
+  tick();
+}
+// ─────────────────────────────────────────────────
+
+// ── TYPEWRITER ─────────────────────────────────────
+let _twTimer = null;
+let _svFullText = '';
+
+function typewriterSV(text, onDone) {
+  _svFullText = text;
+  const el     = document.getElementById('sv-speech');
+  const cursor = document.getElementById('sv-cursor');
+  el.textContent = '';
+  cursor.style.display = 'inline-block';
+  let i = 0;
+  let tickCount = 0;
+  if (_twTimer) clearInterval(_twTimer);
+  _twTimer = setInterval(() => {
+    el.textContent += text[i];
+    i++;
+    tickCount++;
+    if (tickCount % 3 === 0) playTypeTick();
+    if (i >= text.length) {
+      clearInterval(_twTimer);
+      _twTimer = null;
+      cursor.style.display = 'none';
+      if (onDone) onDone();
+    }
+  }, 32);
+}
+
+function svSkipTypewriter() {
+  if (!_twTimer) return;
+  clearInterval(_twTimer);
+  _twTimer = null;
+  document.getElementById('sv-speech').textContent = _svFullText;
+  document.getElementById('sv-cursor').style.display = 'none';
+  document.getElementById('sv-actions').classList.remove('hidden');
+}
+// ─────────────────────────────────────────────────
+
+// SUPERVISOR CLICK HANDLER
+function handleSupervisorClick() {
+  const completedCount = S.completedTests.filter(Boolean).length;
+  const stampCount     = S.stampedTests.filter(Boolean).length;
+  const actionBtn      = document.getElementById('sv-btn-action');
+  const actionsDiv     = document.getElementById('sv-actions');
+  let text;
+
+  if (completedCount === 4 && stampCount === 4) {
+    text = "¡Impresionante! Has explorado todos los rincones del jardín, superado cada desafío y sellado debidamente tu pasaporte botánico. ¡He aquí tu recompensa por tu extraordinario esfuerzo!";
+    actionBtn.textContent = "Entregar Pasaporte 📖";
+    actionBtn.onclick = triggerSupervisorAward;
+  } else {
+    text = `¡Hola, joven explorador! Veo que todavía estás recorriendo el jardín botánico. Has completado ${completedCount} de las 4 pruebas. ¡Vuelve a verme cuando tengas todos los sellos!`;
+    actionBtn.textContent = "Entendido, seguiré buscando";
+    actionBtn.onclick = () => go('screen-map');
+  }
+
+  actionsDiv.classList.add('hidden');
+  go('screen-supervisor');
+  initFireflies();
+
+  setTimeout(() => {
+    typewriterSV(text, () => {
+      actionsDiv.classList.remove('hidden');
+    });
+  }, 300);
+}
+
+// ── SISTEMA DE RANGOS ────────────────────────────────
+const RANKS = [
+  { minScore:88, symbol:'✦', tier:'LEYENDA',    title:'Leyenda Botánica',
+    desc:'El jardín te reconoce como uno de los suyos. Tu sabiduría es ancestral.',
+    titleColor:'#9a6800', css:'r-legend' },
+  { minScore:70, symbol:'❋', tier:'MAESTRO',    title:'Maestro del Jardín',
+    desc:'Las plantas susurran tu nombre. Tu paso no pasará desapercibido.',
+    titleColor:'#1e6e1e', css:'r-master' },
+  { minScore:50, symbol:'◈', tier:'GUARDIÁN',   title:'Guardián del Jardín',
+    desc:'Conoces cada rincón del jardín. Tu presencia cuida lo que crece.',
+    titleColor:'#1a5e48', css:'r-guardian' },
+  { minScore:30, symbol:'◆', tier:'EXPLORADOR', title:'Explorador Botánico',
+    desc:'Has recorrido el jardín con ojos curiosos. Tu aventura florece.',
+    titleColor:'#2e6e38', css:'r-explorer' },
+  { minScore:12, symbol:'▶', tier:'BROTE',      title:'Brote Prometedor',
+    desc:'Un brote lleno de potencial. El jardín aguarda tu regreso.',
+    titleColor:'#5a8020', css:'r-sprout' },
+  { minScore:0,  symbol:'◉', tier:'SEMILLA',    title:'Semilla Curiosa',
+    desc:'Toda leyenda empieza por una semilla. La tuya acaba de germinar.',
+    titleColor:'#7a5028', css:'r-seed' },
+];
+
+function calcScore() {
+  const done  = S.completedTests.filter(Boolean).length;
+  const times = S.completionTimes.filter(t => t !== null);
+  const avg   = times.length ? times.reduce((a,b)=>a+b,0)/times.length : 9999;
+  let score   = (done / 4) * 60;                  // hasta 60 pts por completar
+  if (times.length) {                              // hasta 40 pts por velocidad
+    if      (avg < 30)  score += 40;
+    else if (avg < 60)  score += 32;
+    else if (avg < 120) score += 22;
+    else if (avg < 180) score += 14;
+    else if (avg < 300) score += 7;
+    else                score += 2;
+  }
+  return Math.min(100, Math.round(score));
+}
+
+function setupCitizenshipStats() {
+  const score   = calcScore();
+  const rank    = RANKS.find(r => score >= r.minScore) || RANKS[RANKS.length-1];
+  const done    = S.completedTests.filter(Boolean).length;
+  const times   = S.completionTimes.filter(t => t !== null);
+  const avgSec  = times.length ? Math.round(times.reduce((a,b)=>a+b,0)/times.length) : null;
+
+  const badge = document.getElementById('cz-rank-badge');
+  badge.className = `cz-rank-badge ${rank.css}`;
+  document.getElementById('rank-symbol').textContent = rank.symbol;
+  document.getElementById('rank-tier').textContent   = rank.tier;
+  const titleEl = document.getElementById('rank-title');
+  titleEl.textContent  = rank.title;
+  titleEl.style.color  = rank.titleColor;
+  document.getElementById('rank-desc').textContent  = rank.desc;
+  document.getElementById('rank-score').textContent = `PUNTUACIÓN  ${score} / 100`;
+
+  document.getElementById('stat-plants').textContent   = `${done} / 4`;
+  document.getElementById('stat-avg-time').textContent = avgSec != null
+    ? String(Math.floor(avgSec/60)).padStart(2,'0')+':'+String(avgSec%60).padStart(2,'0')
+    : '--:--';
+}
+// ─────────────────────────────────────────────────────
+
+// DOUBLE WOOD STAMP SOUND FADE TRANSITION
+function triggerSupervisorAward() {
+  const fade = document.getElementById('black-fade');
+  fade.classList.add('active');
+  
+  // Play double stamp wood sound
+  playSeal();
+  setTimeout(playSeal, 350);
+  
+  setTimeout(() => {
+    // Setup Citizenship Card date
+    const d = new Date();
+    document.getElementById('cz-date-el').textContent = 
+      String(d.getDate()).padStart(2,'0') + '/' + 
+      String(d.getMonth()+1).padStart(2,'0') + '/' + 
+      d.getFullYear();
+      
+    // Render stamps on card
+    const summaryEl = document.getElementById('cz-stamps-summary');
+    summaryEl.innerHTML = '';
+    TESTS.forEach(test => {
+      const stampEl = document.createElement('div');
+      stampEl.className = 'cz-mini-stamp';
+      stampEl.innerHTML = test.emoji;
+      summaryEl.appendChild(stampEl);
+    });
+    
+    go('screen-citizenship');
+    setupCitizenshipStats();
+    fade.classList.remove('active');
+  }, 2000);
+}
+
+// CITIZENSHIP PHOTO UPLOAD
+function triggerPhotoUpload() {
+  document.getElementById('photo-upload').click();
+}
+
+function handlePhotoUpload(event) {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('cz-avatar-el').src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+// CITIZENSHIP CARD — DESCARGAR PDF + COMPARTIR
+async function downloadPassport() {
+  const card      = document.getElementById('citizenship-card');
+  const nameInput = document.getElementById('cz-name-input');
+  const name      = (nameInput.value.trim().replace(/\s+/g,'_') || 'aventurero');
+  const filename  = `ciudadano_botanico_${name}`;
+
+  const origBorder = card.style.border;
+  card.style.border = '4px solid #c9a84c';
+
+  try {
+    const canvas = await html2canvas(card, { scale:2, useCORS:true, backgroundColor:'#f0e8d8' });
+    card.style.border = origBorder;
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.93);
+    const ratio   = canvas.height / canvas.width;
+    const pdfW    = 120; // mm
+    const pdfH    = pdfW * ratio;
+
+    // Generar y descargar PDF
+    if (window.jspdf) {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: ratio > 1 ? 'portrait' : 'landscape', unit:'mm', format:[pdfW, pdfH] });
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
+      pdf.save(`${filename}.pdf`);
+      toast('📄 PDF descargado');
+    } else {
+      // fallback PNG si jsPDF no carga
+      const a = document.createElement('a');
+      a.download = `${filename}.png`;
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      toast('📥 Imagen descargada');
+    }
+
+    // Intentar abrir hoja de compartir (Instagram, WhatsApp, etc.)
+    await new Promise(resolve => {
+      canvas.toBlob(async blob => {
+        const file = new File([blob], `${filename}.png`, { type:'image/png' });
+        const sd = { files:[file], title:'Mi Ciudadanía Botánica 🌿', text:'¡He completado la ginkana del Jardí Botànic de València! 🌱' };
+        if (navigator.canShare && navigator.canShare(sd)) {
+          try { await navigator.share(sd); } catch(e) {}
+        } else if (navigator.share) {
+          try { await navigator.share({ title:'Mi Ciudadanía Botánica 🌿', text:'¡He completado la ginkana del Jardí Botànic! 🌱', url: window.location.href }); } catch(e) {}
+        }
+        resolve();
+      }, 'image/png');
+    });
+
+  } catch(e) {
+    card.style.border = origBorder;
+    toast('Error al generar el pasaporte');
+    console.error(e);
+  }
+}
+
+// ── VISOR 360° ───────────────────────────────────────
+let pano360Img    = null;
+let pano360RAF    = null;
+let pano360State  = { yaw:0, pitch:0, yawVel:0, isDragging:false, lastX:0, lastY:0, baseGamma:null };
+
+function start360Viewer(test) {
+  document.getElementById('sign-360-title').textContent = test.name;
+  document.getElementById('sign-360-body').textContent  = test.signText;
+  go('screen-360');
+
+  S.timerSec = 0;
+  if (S.timerInt) clearInterval(S.timerInt);
+  S.timerInt = setInterval(() => { S.timerSec++; }, 1000);
+
+  const canvas = document.getElementById('canvas-360');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  pano360State  = { yaw:0, pitch:0, yawVel:0, isDragging:false, lastX:0, lastY:0, baseGamma:null };
+
+  if (!pano360Img || !pano360Img.src.endsWith(test.panorama)) {
+    pano360Img = new Image();
+    pano360Img.onload = () => pano360StartLoop();
+    pano360Img.src = test.panorama;
+  } else {
+    pano360StartLoop();
+  }
+
+  // Listeners en el contenedor completo para capturar toques sobre el cartel y el HUD
+  const wrap360 = document.getElementById('screen-360');
+  wrap360.addEventListener('touchstart',  on360TS, { passive:true });
+  wrap360.addEventListener('touchmove',   on360TM, { passive:false });
+  wrap360.addEventListener('touchend',    on360TE, { passive:true });
+  // También mouse para pruebas en desktop
+  wrap360.addEventListener('mousedown',  on360MD, { passive:true });
+  wrap360.addEventListener('mousemove',  on360MM, { passive:true });
+  wrap360.addEventListener('mouseup',    on360MU, { passive:true });
+
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission().then(p => { if (p === 'granted') window.addEventListener('deviceorientation', on360Gyro, { passive:true }); }).catch(()=>{});
+  } else if (window.DeviceOrientationEvent) {
+    window.addEventListener('deviceorientation', on360Gyro, { passive:true });
+  }
+}
+
+function pano360StartLoop() {
+  if (pano360RAF) cancelAnimationFrame(pano360RAF);
+  (function loop() {
+    if (!document.getElementById('screen-360').classList.contains('active')) { pano360RAF = null; return; }
+    if (!pano360State.isDragging) { pano360State.yawVel *= 0.92; pano360State.yaw += pano360State.yawVel; }
+    pano360Draw();
+    pano360RAF = requestAnimationFrame(loop);
+  })();
+}
+
+function pano360Draw() {
+  const canvas = document.getElementById('canvas-360');
+  if (!canvas || !pano360Img?.complete || !pano360Img.naturalWidth) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const iW = pano360Img.naturalWidth, iH = pano360Img.naturalHeight;
+  const hFov = 75 / 360;
+  const srcW = iW * hFov;
+  const srcH = Math.min(iH, srcW * (H / W));
+  const yawN = ((pano360State.yaw % 360) + 360) % 360;
+  const sx   = (yawN / 360) * iW;
+  const sy   = Math.max(0, Math.min(iH - srcH, (0.5 + pano360State.pitch / 160) * iH - srcH / 2));
+  ctx.clearRect(0, 0, W, H);
+  const rx = sx % iW, re = rx + srcW;
+  if (re <= iW) {
+    ctx.drawImage(pano360Img, rx, sy, srcW, srcH, 0, 0, W, H);
+  } else {
+    const w1 = iW - rx, pw1 = W * (w1 / srcW);
+    ctx.drawImage(pano360Img, rx, sy, w1, srcH, 0, 0, pw1, H);
+    ctx.drawImage(pano360Img, 0,  sy, srcW - w1, srcH, pw1, 0, W - pw1, H);
+  }
+}
+
+function on360TS(e) {
+  if (e.target.id === 'btn-finish-360') return; // no interferir con el botón
+  pano360State.isDragging = true;
+  pano360State.lastX = e.touches[0].clientX;
+  pano360State.lastY = e.touches[0].clientY;
+  pano360State.yawVel = 0;
+}
+function on360TM(e) {
+  if (!pano360State.isDragging) return;
+  e.preventDefault();
+  const dx = e.touches[0].clientX - pano360State.lastX;
+  const dy = e.touches[0].clientY - pano360State.lastY;
+  pano360State.lastX = e.touches[0].clientX;
+  pano360State.lastY = e.touches[0].clientY;
+  pano360State.yaw  -= dx * 0.3;
+  pano360State.pitch = Math.max(-45, Math.min(45, pano360State.pitch - dy * 0.2));
+  pano360State.yawVel = -dx * 0.3;
+}
+function on360TE() { pano360State.isDragging = false; }
+
+// Mouse (desktop)
+function on360MD(e) { pano360State.isDragging=true; pano360State.lastX=e.clientX; pano360State.lastY=e.clientY; pano360State.yawVel=0; }
+function on360MM(e) {
+  if (!pano360State.isDragging) return;
+  const dx = e.clientX - pano360State.lastX;
+  const dy = e.clientY - pano360State.lastY;
+  pano360State.lastX = e.clientX; pano360State.lastY = e.clientY;
+  pano360State.yaw  -= dx * 0.3;
+  pano360State.pitch = Math.max(-45, Math.min(45, pano360State.pitch - dy * 0.2));
+  pano360State.yawVel = -dx * 0.3;
+}
+function on360MU() { pano360State.isDragging = false; }
+
+function on360Gyro(e) {
+  if (pano360State.isDragging || e.gamma == null) return;
+  if (pano360State.baseGamma === null) { pano360State.baseGamma = e.gamma; return; }
+  pano360State.yaw   = (e.gamma - pano360State.baseGamma) * 2.2;
+  if (e.beta != null) pano360State.pitch = Math.max(-45, Math.min(45, (e.beta - 55) * 0.45));
+}
+
+function finish360() {
+  window.removeEventListener('deviceorientation', on360Gyro);
+  const w = document.getElementById('screen-360');
+  w.removeEventListener('touchstart', on360TS);
+  w.removeEventListener('touchmove',  on360TM);
+  w.removeEventListener('touchend',   on360TE);
+  w.removeEventListener('mousedown',  on360MD);
+  w.removeEventListener('mousemove',  on360MM);
+  w.removeEventListener('mouseup',    on360MU);
+  complete();
+}
+// ─────────────────────────────────────────────────
+
+// COMPARTIR PASAPORTE
+async function sharePassport() {
+  try {
+    const el = document.getElementById('pp-road');
+    const canvas = await html2canvas(el, { scale:2, useCORS:true, backgroundColor:'#2b1a0f' });
+    const done = async (blob) => {
+      const file = new File([blob], 'pasaporte_botanico.png', { type:'image/png' });
+      const shareData = {
+        files: [file],
+        title: 'Mi Pasaporte Botánico 🌿',
+        text: '¡Explorando el Jardí Botànic de València! 🌱'
+      };
+      if (navigator.canShare && navigator.canShare(shareData)) {
+        try { await navigator.share(shareData); return; } catch(e) { if (e.name === 'AbortError') return; }
+      }
+      if (navigator.share) {
+        try { await navigator.share({ title:'Mi Pasaporte Botánico 🌿', text:'¡Explorando el Jardí Botànic!', url: window.location.href }); return; } catch(e) {}
+      }
+      const a = document.createElement('a');
+      a.download = 'pasaporte_botanico.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      toast('📥 Imagen guardada para compartir');
+    };
+    canvas.toBlob(done, 'image/png');
+  } catch(e) { toast('No se pudo generar la imagen'); }
+}
+
+// RESET THE ENTIRE GAME STATE
+function resetAdventure() {
+  S.activeTestIndex = null;
+  S.completedTests = [false, false, false, false];
+  S.stampedTests = [false, false, false, false];
+  S.stampCoordinates = [null, null, null, null];
+  S.completionTimes  = [null, null, null, null];
+  S.firstTimePassport = true;
+  S.sealPending = false;
+  S.timerSec = 0;
+  if (S.timerInt) clearInterval(S.timerInt);
+  
+  // Reset custom elements
+  document.getElementById('cz-avatar-el').src = 'foto_defecto_pasaporte.jpg';
+  document.getElementById('cz-name-input').value = 'Aventurero/a';
+  
+  // Reset calibration
+  S.mapInitialized = false;
+  S.isCalibrating = false;
+  S.hasCalibrated = false;
+  S.gpsOffset = { x: 0, y: 0 };
+  S.manualPos = { x: 50, y: 92 };
+  S.lastGpsPos = null;
+  S.tempGpsPos = { x: 50, y: 92 };
+  document.getElementById('calibration-backdrop').classList.remove('active');
+  document.getElementById('calibration-banner').style.display = 'none';
+  document.getElementById('backpack-btn').style.display = 'flex';
+  document.getElementById('backpack-btn').classList.remove('seal-pending');
+  closeBackpackMenu();
+  updateGpsDisplay();
+  
+  // Reload tutorial
+  const cards = document.querySelectorAll('.tcard');
+  cards.forEach((card, idx) => {
+    card.classList.remove('out', 'current');
+    if (idx === 0) card.classList.add('current');
+  });
+  
+  go('screen-tutorial');
+}
+
+// AUDIO
+function playPageTurn() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const dur = 0.16;
+    const len = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d   = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      const t = i / len;
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 1.6) * 0.45;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'bandpass';
+    filt.frequency.setValueAtTime(3200, ctx.currentTime);
+    filt.frequency.linearRampToValueAtTime(900, ctx.currentTime + dur);
+    filt.Q.value = 0.7;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.55, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + dur);
+    src.connect(filt); filt.connect(gain); gain.connect(ctx.destination);
+    src.start();
+  } catch(e) {}
+}
+
+function playTypeTick() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = 'sine';
+    o.frequency.value = 520 + Math.random() * 180;
+    g.gain.setValueAtTime(0, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0.04, ctx.currentTime + .006);
+    g.gain.linearRampToValueAtTime(0, ctx.currentTime + .028);
+    o.start(); o.stop(ctx.currentTime + .03);
+  } catch(e) {}
+}
+
+function playChime() {
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [523,659,784,1047].forEach((f,i) => {
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.connect(g); g.connect(ctx.destination); o.frequency.value=f; o.type='sine';
+      const t=ctx.currentTime+i*.12;
+      g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.14,t+.05); g.gain.linearRampToValueAtTime(0,t+.28);
+      o.start(t); o.stop(t+.3);
+    });
+  } catch(e) {}
+}
+
+function playSeal() {
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const buf=ctx.createBuffer(1,ctx.sampleRate*.3,ctx.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(ctx.sampleRate*.04));
+    const src=ctx.createBufferSource(), g=ctx.createGain();
+    src.buffer=buf; src.connect(g); g.connect(ctx.destination); g.gain.value=.4; src.start();
+  } catch(e) {}
+}
+
+// EFECTO PARTÍCULAS DE ARENA (Mapa)
+function initLeaves() {
+  const canvas=document.getElementById('leaf-canvas');
+  const wrap=document.getElementById('map-container');
+  const ctx=canvas.getContext('2d');
+  const R=()=>{canvas.width=wrap.offsetWidth;canvas.height=wrap.offsetHeight;};
+  R(); window.addEventListener('resize',R);
+  
+  // Sandy wind color palette
+  const C=['#e8c890', '#d8b880', '#e0c088', '#f0d098', '#cda86b'];
+  const mk=()=>(({
+    x: -15, // start left
+    y: Math.random()*canvas.height,
+    sz: 1.2+Math.random()*2.2, // tiny sand grains
+    color: C[0|Math.random()*C.length],
+    speedX: 1.5+Math.random()*2.2, // blowing horizontal
+    speedY: (Math.random()-0.35)*0.5, // slight vertical drift
+    alpha: 0.35+Math.random()*0.45
+  }));
+  const L=Array.from({length:35},()=>{
+    const l=mk();
+    l.x = Math.random()*canvas.width; // distribute initially
+    return l;
+  });
+  (function tick(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    L.forEach(l=>{
+      l.x+=l.speedX;
+      l.y+=l.speedY;
+      if(l.x>canvas.width+15 || l.y<-15 || l.y>canvas.height+15){
+        Object.assign(l,mk());
+      }
+      ctx.save();
+      ctx.translate(l.x,l.y);
+      ctx.globalAlpha=l.alpha;
+      ctx.fillStyle=l.color;
+      ctx.beginPath();
+      ctx.arc(0, 0, l.sz, 0, Math.PI*2); // circular sand particles
+      ctx.fill();
+      ctx.restore();
+    });
+    requestAnimationFrame(tick);
+  })();
+}
+
+// HOJAS RESULTADO
+function initResultLeaves() {
+  const canvas=document.getElementById('res-canvas');
+  const wrap=document.getElementById('screen-result');
+  const ctx=canvas.getContext('2d');
+  canvas.width=wrap.offsetWidth; canvas.height=wrap.offsetHeight;
+  const C=['#4a8a30','#5aa040','#3d7228','#6ab548','#8aca60'];
+  const mk=()=>(({x:Math.random()*canvas.width,y:-20,sz:3+Math.random()*5,color:C[0|Math.random()*C.length],speed:.3+Math.random()*.8,sw:(Math.random()-.5)*1.2,swAcc:0,rot:Math.random()*Math.PI*2,rotSpeed:(Math.random()-.5)*.05,alpha:.45+Math.random()*.3}));
+  const L=Array.from({length:16},()=>{const l=mk();l.y=Math.random()*canvas.height;return l;});
+  (function tick(){
+    if(!document.getElementById('screen-result').classList.contains('active')) return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    L.forEach(l=>{
+      l.swAcc+=(Math.random()-.5)*.05;l.swAcc*=.91;l.sw+=l.swAcc;l.x+=l.sw;l.y+=l.speed;l.rot+=l.rotSpeed;
+      if(l.y>canvas.height+20){Object.assign(l,mk());l.x=Math.random()*canvas.width;}
+      ctx.save();ctx.translate(l.x,l.y);ctx.rotate(l.rot);ctx.globalAlpha=l.alpha;ctx.fillStyle=l.color;
+      ctx.beginPath();ctx.ellipse(0,0,l.sz*.42,l.sz,0,0,Math.PI*2);ctx.fill();ctx.restore();
+    });
+    requestAnimationFrame(tick);
+  })();
+}
+
+// CENTRAL GPS RENDERER (Responsivo, con soporte para offsets y calibración manual)
+function updateGpsDisplay() {
+  const d = document.getElementById('gps-dot');
+  if (!d) return;
+  
+  let renderX = 50;
+  let renderY = 92; // Default to entrance
+  
+  if (S.isCalibrating) {
+    renderX = S.tempGpsPos.x;
+    renderY = S.tempGpsPos.y;
+  } else if (S.hasCalibrated) {
+    if (S.lastGpsPos) {
+      renderX = S.lastGpsPos.x + S.gpsOffset.x;
+      renderY = S.lastGpsPos.y + S.gpsOffset.y;
+    } else {
+      renderX = S.manualPos.x;
+      renderY = S.manualPos.y;
+    }
+  } else if (S.lastGpsPos) {
+    renderX = S.lastGpsPos.x;
+    renderY = S.lastGpsPos.y;
+  }
+  
+  // Clamping to map viewport bounds
+  renderX = Math.max(0, Math.min(100, renderX));
+  renderY = Math.max(0, Math.min(100, renderY));
+  
+  d.style.left = renderX + '%';
+  d.style.top = renderY + '%';
+}
+
+// GPS → píxeles sobre la imagen original (1190×1971 px)
+// Puntos de calibración:
+//   A: GPS (39.47569, -0.38640) → pixel (595, 1870)
+//   B: GPS (39.47822, -0.38597) → pixel (1050, 130)
+function gpsToPixels(lat, lon) {
+  const scaleLon = (1050 - 595) / (-0.38597 - (-0.38640)); // px/grado longitud
+  const scaleLat = (130 - 1870) / (39.47822 - 39.47569);   // px/grado latitud (negativo: Y crece hacia abajo)
+  const px = 595 + (lon - (-0.38640)) * scaleLon;
+  const py = 1870 + (lat - 39.47569) * scaleLat;
+  return { x: px, y: py };
+}
+
+// REAL-TIME GPS TRACKING
+function initGPS() {
+  if(!navigator.geolocation) {
+    updateGpsDisplay();
+    return;
+  }
+  navigator.geolocation.watchPosition(pos=>{
+    const { x: px, y: py } = gpsToPixels(pos.coords.latitude, pos.coords.longitude);
+    const xPct = px / 1190 * 100;
+    const yPct = py / 1971 * 100;
+    S.lastGpsPos = { x: xPct, y: yPct };
+    updateGpsDisplay();
+  }, () => {
+    updateGpsDisplay();
+  }, {enableHighAccuracy:true,maximumAge:2000,timeout:10000});
+}
+
+// CALIBRACIÓN DE POSICIÓN DE GPS
+function startCalibration() {
+  if (S.isCalibrating) return;
+  closeBackpackMenu();
+
+  S.isCalibrating = true;
+
+  const dot = document.getElementById('gps-dot');
+  let startX = dot.style.left ? parseFloat(dot.style.left) : 50;
+  let startY = dot.style.top ? parseFloat(dot.style.top) : 92;
+  S.tempGpsPos = { x: startX, y: startY };
+
+  document.getElementById('calibration-backdrop').classList.add('active');
+  document.getElementById('calibration-banner').style.display = 'flex';
+  document.getElementById('backpack-btn').style.display = 'none';
+
+  updateGpsDisplay();
+}
+
+// ── MOCHILA ────────────────────────────────────────
+let _bpOpen = false;
+
+function toggleBackpackMenu() {
+  _bpOpen = !_bpOpen;
+  document.getElementById('backpack-menu').classList.toggle('open', _bpOpen);
+  document.getElementById('backpack-btn').classList.toggle('menu-open', _bpOpen);
+}
+
+function closeBackpackMenu() {
+  _bpOpen = false;
+  document.getElementById('backpack-menu').classList.remove('open');
+  document.getElementById('backpack-btn').classList.remove('menu-open');
+}
+
+function openFromBackpack(action) {
+  closeBackpackMenu();
+  if (action === 'passport') {
+    openPassport();
+  } else if (action === 'scanner') {
+    openPlantScanner();
+  } else if (action === 'calibrate') {
+    startCalibration();
+  }
+}
+
+function openPlantScanner() {
+  const idx = S.activeTestIndex !== null
+    ? S.activeTestIndex
+    : TESTS.findIndex((_, i) => !S.completedTests[i]);
+  if (idx === -1) { toast('🌿 ¡Todas las pruebas completadas!'); return; }
+  S.activeTestIndex = idx;
+  const test = TESTS[idx];
+  document.getElementById('fp-title').textContent = `Encuentra: ${test.name} 🌿`;
+  document.getElementById('fp-img-el').src = test.photo;
+  document.getElementById('fp-hint-text').textContent = test.hint;
+  document.getElementById('ci-badge-el').textContent = test.emoji;
+  document.getElementById('ci-name-el').textContent = test.name;
+  document.getElementById('ci-desc-el').innerHTML = `${test.desc}<br>Introduce los 4 dígitos de la placa para comenzar.`;
+  clearCode();
+  go('screen-challenge-intro');
+}
+// ─────────────────────────────────────────────────
+
+function handleMapClick(e) {
+  if (_bpOpen) { closeBackpackMenu(); return; }
+  if (!S.isCalibrating) return;
+  
+  const container = document.getElementById('map-container');
+  const rect = container.getBoundingClientRect();
+  
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  
+  const xPct = (x / rect.width) * 100;
+  const yPct = (y / rect.height) * 100;
+  
+  S.tempGpsPos = { x: xPct, y: yPct };
+  updateGpsDisplay();
+}
+
+function saveCalibration() {
+  if (!S.isCalibrating) return;
+  
+  S.manualPos = { x: S.tempGpsPos.x, y: S.tempGpsPos.y };
+  S.hasCalibrated = true;
+  
+  if (S.lastGpsPos) {
+    S.gpsOffset.x = S.tempGpsPos.x - S.lastGpsPos.x;
+    S.gpsOffset.y = S.tempGpsPos.y - S.lastGpsPos.y;
+  } else {
+    S.gpsOffset = { x: 0, y: 0 };
+  }
+  
+  S.isCalibrating = false;
+
+  document.getElementById('calibration-backdrop').classList.remove('active');
+  document.getElementById('calibration-banner').style.display = 'none';
+  document.getElementById('backpack-btn').style.display = 'flex';
+
+  updateGpsDisplay();
+  toast('📍 Posición calibrada');
+}
+
+function cancelCalibration() {
+  if (!S.isCalibrating) return;
+
+  S.isCalibrating = false;
+
+  document.getElementById('calibration-backdrop').classList.remove('active');
+  document.getElementById('calibration-banner').style.display = 'none';
+  document.getElementById('backpack-btn').style.display = 'flex';
+
+  updateGpsDisplay();
+  toast('Calibración cancelada');
+}
+
+// COMPASS AND CONE ROTATION
+function initCompass() {
+  const listen=()=>{
+    window.addEventListener('deviceorientationabsolute',e=>{if(e.absolute&&e.alpha!=null)S.hTarget=-e.alpha;},{passive:true});
+    window.addEventListener('deviceorientation',e=>{
+      if(e.webkitCompassHeading!=null){S.hTarget=-e.webkitCompassHeading;}
+    },{passive:true});
+  };
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function')
+    DeviceOrientationEvent.requestPermission().then(p=>{if(p==='granted')listen();}).catch(()=>{});
+  else if(window.DeviceOrientationEvent) listen();
+  (function tick(){
+    S.hVel+=(S.hTarget-S.heading)*.011;S.hVel*=.87;S.heading+=S.hVel;
+    document.getElementById('compass-needle').style.transform='rotate('+S.heading+'deg)';
+    const cone = document.getElementById('gps-cone');
+    if (cone) {
+      cone.style.transform='translateX(-50%) rotate('+(-S.heading)+'deg)';
+    }
+    requestAnimationFrame(tick);
+  })();
+}
+
+function toast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+document.addEventListener('click',()=>{try{new (window.AudioContext||window.webkitAudioContext)();}catch(e){}},{once:true});
+</script>
+</body>
+</html>
