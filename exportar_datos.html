@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Exportar configuración Gincana</title>
+<style>
+  body { font-family: sans-serif; max-width: 640px; margin: 60px auto; padding: 0 24px; background: #f5f0e8; color: #2a1c08; }
+  h1 { font-size: 22px; margin-bottom: 6px; }
+  .sub { color: #666; font-size: 14px; margin-bottom: 28px; }
+  .card { background: #fff; border-radius: 14px; padding: 22px 24px; box-shadow: 0 4px 16px rgba(0,0,0,.1); margin-bottom: 20px; }
+  .card h2 { font-size: 15px; margin: 0 0 8px; color: #2d5a1e; }
+  .card p  { font-size: 13px; color: #555; line-height: 1.6; margin: 0; }
+  button { display: block; width: 100%; padding: 16px; background: #5a8a4a; color: #fff;
+           border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer;
+           margin-top: 16px; transition: background .15s; }
+  button:hover { background: #2d5a1e; }
+  #log { margin-top: 20px; background: #eef5e8; border: 1.5px solid #5a8a4a; border-radius: 10px;
+         padding: 14px 16px; font-size: 12px; font-family: monospace; color: #1a3a0e;
+         white-space: pre-wrap; display: none; }
+  .warn { background: #fff8e0; border: 1.5px solid #c9a84c; border-radius: 10px;
+          padding: 12px 16px; font-size: 13px; color: #7a5000; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<h1>🌿 Exportar configuración de la Gincana</h1>
+<p class="sub">Herramienta auxiliar — úsala en el mismo navegador donde tienes la gincana configurada</p>
+
+<div class="warn">
+  ⚠️ <strong>Importante:</strong> abre este archivo en el mismo navegador
+  (y perfil) donde has estado configurando la gincana.
+  Si lo abres en otro navegador, el localStorage estará vacío.
+</div>
+
+<div class="card">
+  <h2>¿Qué hace este botón?</h2>
+  <p>Lee todas las claves de configuración del localStorage
+     (posiciones de los puntos, textos, fotos en base64, códigos…)
+     y descarga un archivo <strong>datos_gincana.json</strong>.<br><br>
+     Guarda ese archivo en la misma carpeta que el HTML de la gincana
+     y confirma al asistente para pasar a la Fase 2.</p>
+</div>
+
+<button onclick="exportar()">⬇ Descargar datos_gincana.json</button>
+<div id="log"></div>
+
+<script>
+// Claves de configuración que usa la gincana
+const CLAVES_CONFIG = [
+  'testPoisPositions',
+  'infoPoisPositions',
+  'supervisorPos',
+  'witchPos',
+  'poiAllConfigs',
+  'poiCodes',
+  'dynamicPois',
+  'hiddenPois',
+  'proximityMode',
+  // Fotos de las pruebas (índices 0-5 + posibles extras)
+  'testPhoto-0',
+  'testPhoto-1',
+  'testPhoto-2',
+  'testPhoto-3',
+  'testPhoto-4',
+  'testPhoto-5',
+  'testPhoto-6',
+  'testPhoto-7',
+];
+
+function exportar() {
+  const log = document.getElementById('log');
+  log.style.display = 'block';
+  log.textContent = '';
+
+  const datos = {};
+  let encontradas = 0;
+  let vacias = 0;
+
+  CLAVES_CONFIG.forEach(clave => {
+    const valor = localStorage.getItem(clave);
+    if (valor !== null) {
+      try {
+        datos[clave] = JSON.parse(valor);
+        const kb = Math.round(valor.length / 1024);
+        log.textContent += `✓ ${clave} — ${kb} KB\n`;
+      } catch(e) {
+        // Guardar como string si no es JSON válido
+        datos[clave] = valor;
+        log.textContent += `✓ ${clave} — (string)\n`;
+      }
+      encontradas++;
+    } else {
+      log.textContent += `○ ${clave} — vacío (sin configurar)\n`;
+      vacias++;
+    }
+  });
+
+  // Buscar fotos extra con índice > 7
+  for (let i = 8; i < 20; i++) {
+    const clave = 'testPhoto-' + i;
+    const valor = localStorage.getItem(clave);
+    if (valor !== null) {
+      try { datos[clave] = JSON.parse(valor); } catch(e) { datos[clave] = valor; }
+      log.textContent += `✓ ${clave} — ${Math.round(valor.length/1024)} KB\n`;
+      encontradas++;
+    }
+  }
+
+  log.textContent += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  log.textContent += `Claves con datos: ${encontradas}\n`;
+  log.textContent += `Claves vacías:    ${vacias}\n`;
+
+  if (encontradas === 0) {
+    log.textContent += `\n⚠️ No se encontró ningún dato de configuración.\n`;
+    log.textContent += `Asegúrate de abrir este archivo en el mismo navegador\n`;
+    log.textContent += `donde has configurado la gincana.\n`;
+    return;
+  }
+
+  const json = JSON.stringify(datos, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'datos_gincana.json';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  log.textContent += `\n✅ Archivo descargado: datos_gincana.json\n`;
+  log.textContent += `Tamaño total: ${Math.round(json.length / 1024)} KB\n`;
+  log.textContent += `\nGuárdalo en la carpeta del proyecto y confirma al asistente.`;
+}
+</script>
+</body>
+</html>
